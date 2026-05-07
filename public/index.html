@@ -1,0 +1,3278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#5B0EA6" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <title>Velour</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ── TOKENS ───────────────────────────────────── */
+      :root {
+        --ink: #5b0ea6;
+        --vi: #7c3aed;
+        --lil: #a78bfa;
+        --deep: #09010f;
+        --void: #110820;
+        --layer: #1c0f35;
+        --plate: #231544;
+        --rim: rgba(124, 58, 237, 0.15);
+        --text: #ede9fe;
+        --mute: rgba(237, 233, 254, 0.45);
+        --ok: #34d399;
+        --warn: #f87171;
+        --grad: linear-gradient(135deg, #5b0ea6, #7c3aed);
+        --gradh: linear-gradient(135deg, #6b14bf, #8b48fc);
+        --r: 13px;
+        --rs: 8px;
+        --nav-h: 58px;
+        --nav-w: 210px;
+        font-size: 14px;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+        background: var(--deep);
+        color: var(--text);
+        font-family: "DM Sans", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      button {
+        font-family: inherit;
+        cursor: pointer;
+        border: none;
+        background: none;
+      }
+      input,
+      textarea {
+        font-family: inherit;
+        outline: none;
+      }
+      * {
+        -webkit-tap-highlight-color: transparent;
+      }
+      ::-webkit-scrollbar {
+        width: 3px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(124, 58, 237, 0.3);
+        border-radius: 99px;
+      }
+
+      /* ── BUBBLES ──────────────────────────────────── */
+      #bb {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+      }
+      .bub {
+        position: absolute;
+        bottom: -100px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle at 35% 35%,
+          rgba(124, 58, 237, 0.28),
+          rgba(91, 14, 166, 0.04)
+        );
+        animation: rise linear infinite;
+      }
+      @keyframes rise {
+        0% {
+          transform: translateY(0) scale(1);
+          opacity: 0;
+        }
+        10% {
+          opacity: 1;
+        }
+        90% {
+          opacity: 0.35;
+        }
+        100% {
+          transform: translateY(-110vh) scale(0.55);
+          opacity: 0;
+        }
+      }
+
+      /* ── APP SHELL ────────────────────────────────── */
+      #app {
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      @media (min-width: 768px) {
+        #app {
+          flex-direction: row;
+        }
+      }
+
+      /* ── NAV ──────────────────────────────────────── */
+      #nav {
+        order: 2;
+        display: none;
+        background: var(--layer);
+        border-top: 1px solid var(--rim);
+        padding-bottom: env(safe-area-inset-bottom);
+        position: relative;
+        z-index: 30;
+      }
+      #nav.on {
+        display: flex;
+      }
+      @media (max-width: 767px) {
+        #nav {
+          height: var(--nav-h);
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-around;
+        }
+      }
+      @media (min-width: 768px) {
+        #nav {
+          order: 1;
+          width: var(--nav-w);
+          height: 100%;
+          flex-direction: column;
+          align-items: stretch;
+          justify-content: flex-start;
+          border-top: none;
+          border-right: 1px solid var(--rim);
+          padding: 0 0 20px;
+        }
+      }
+      .nav-logo {
+        display: none;
+        padding: 22px 16px 18px;
+        align-items: center;
+        gap: 9px;
+        border-bottom: 1px solid var(--rim);
+        margin-bottom: 6px;
+      }
+      @media (min-width: 768px) {
+        .nav-logo {
+          display: flex;
+        }
+      }
+      .nav-logo-mark {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        background: var(--grad);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .ni {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 9px 13px;
+        color: var(--mute);
+        font-size: 0.78rem;
+        font-weight: 500;
+        transition:
+          color 0.17s,
+          background 0.17s;
+        position: relative;
+      }
+      .ni svg {
+        width: 17px;
+        height: 17px;
+        flex-shrink: 0;
+        transition: transform 0.18s;
+      }
+      .ni.on {
+        color: var(--lil);
+      }
+      .ni.on svg {
+        transform: scale(1.08);
+      }
+      @media (max-width: 767px) {
+        .ni {
+          flex: 1;
+          flex-direction: column;
+          gap: 2px;
+          justify-content: center;
+          font-size: 0.6rem;
+          padding: 7px 4px 5px;
+        }
+        .ni svg {
+          width: 19px;
+          height: 19px;
+        }
+        .ni.on::after {
+          content: "";
+          position: absolute;
+          bottom: 3px;
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          background: var(--lil);
+        }
+      }
+      @media (min-width: 768px) {
+        .ni {
+          border-radius: var(--rs);
+          margin: 1px 10px;
+          width: calc(100% - 20px);
+        }
+        .ni.on {
+          background: rgba(124, 58, 237, 0.16);
+        }
+        .ni::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%) scaleY(0);
+          width: 3px;
+          height: 55%;
+          border-radius: 0 2px 2px 0;
+          background: var(--lil);
+          transition: transform 0.18s;
+        }
+        .ni.on::before {
+          transform: translateY(-50%) scaleY(1);
+        }
+      }
+      .nav-foot {
+        margin-top: auto;
+        padding: 10px;
+      }
+
+      /* ── CONTENT ──────────────────────────────────── */
+      #ct {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        order: 1;
+      }
+      @media (min-width: 768px) {
+        #ct {
+          order: 2;
+        }
+      }
+
+      /* ── SCREENS ──────────────────────────────────── */
+      .sc {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: var(--deep);
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 0.22s ease,
+          transform 0.22s ease;
+        transform: translateY(8px);
+      }
+      .sc.on {
+        opacity: 1;
+        pointer-events: all;
+        transform: translateY(0);
+      }
+      .sc.out {
+        transform: translateY(-8px);
+        opacity: 0;
+        transition-duration: 0.18s;
+      }
+
+      /* ── TYPOGRAPHY ───────────────────────────────── */
+      .fd {
+        font-family: "Bricolage Grotesque", sans-serif;
+      }
+      h1 {
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-size: 1.6rem;
+        font-weight: 800;
+        line-height: 1.1;
+      }
+      h2 {
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-size: 1.15rem;
+        font-weight: 700;
+      }
+      h3 {
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-size: 0.92rem;
+        font-weight: 700;
+      }
+
+      /* ── CARD ─────────────────────────────────────── */
+      .card {
+        background: var(--layer);
+        border: 1px solid var(--rim);
+        border-radius: var(--r);
+        padding: 13px 15px;
+      }
+      .card-hi {
+        background: var(--plate);
+      }
+
+      /* ── BTN ──────────────────────────────────────── */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 38px;
+        border-radius: var(--rs);
+        font-weight: 500;
+        font-size: 0.82rem;
+        width: 100%;
+        transition: all 0.14s;
+        cursor: pointer;
+      }
+      .btn:active {
+        transform: scale(0.96);
+      }
+      .btn-p {
+        background: var(--grad);
+        color: #fff;
+        box-shadow: 0 4px 16px rgba(91, 14, 166, 0.3);
+      }
+      .btn-p:hover {
+        background: var(--gradh);
+      }
+      .btn-o {
+        border: 1px solid rgba(124, 58, 237, 0.45);
+        color: var(--lil);
+        background: transparent;
+      }
+      .btn-o:hover {
+        background: rgba(124, 58, 237, 0.08);
+      }
+      .btn-g {
+        color: var(--mute);
+      }
+      .btn-g:hover {
+        color: var(--text);
+      }
+      .btn-d {
+        color: var(--warn);
+      }
+      .btn-sm {
+        height: 32px;
+        font-size: 0.75rem;
+      }
+      .btn-lg {
+        height: 44px;
+        font-size: 0.87rem;
+        border-radius: var(--r);
+      }
+
+      /* ── INPUT ────────────────────────────────────── */
+      .inp {
+        width: 100%;
+        background: var(--void);
+        border: 1px solid var(--rim);
+        color: var(--text);
+        border-radius: var(--rs);
+        padding: 9px 12px;
+        font-size: 0.84rem;
+        transition: border-color 0.18s;
+      }
+      .inp:focus {
+        border-color: rgba(124, 58, 237, 0.55);
+      }
+      .inp::placeholder {
+        color: var(--mute);
+      }
+
+      /* ── BADGE ────────────────────────────────────── */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 7px;
+        border-radius: 99px;
+        font-size: 0.66rem;
+        font-weight: 600;
+      }
+      .bvi {
+        background: rgba(124, 58, 237, 0.16);
+        color: var(--lil);
+      }
+      .bgr {
+        background: rgba(52, 211, 153, 0.13);
+        color: var(--ok);
+      }
+
+      /* ── TOGGLE ───────────────────────────────────── */
+      .tog {
+        position: relative;
+        width: 38px;
+        height: 21px;
+        flex-shrink: 0;
+      }
+      .tog input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .tog-sl {
+        position: absolute;
+        inset: 0;
+        border-radius: 99px;
+        background: rgba(255, 255, 255, 0.11);
+        transition: 0.18s;
+        cursor: pointer;
+      }
+      .tog-sl::before {
+        content: "";
+        position: absolute;
+        width: 15px;
+        height: 15px;
+        left: 3px;
+        top: 3px;
+        border-radius: 50%;
+        background: #fff;
+        transition: 0.18s;
+      }
+      .tog input:checked + .tog-sl {
+        background: var(--vi);
+      }
+      .tog input:checked + .tog-sl::before {
+        transform: translateX(17px);
+      }
+
+      /* ── RANGE ────────────────────────────────────── */
+      input[type="range"] {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 4px;
+        border-radius: 99px;
+        background: rgba(124, 58, 237, 0.18);
+        outline: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 17px;
+        height: 17px;
+        border-radius: 50%;
+        background: var(--grad);
+        box-shadow: 0 2px 7px rgba(91, 14, 166, 0.4);
+        cursor: pointer;
+      }
+      .rv {
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--lil);
+        text-align: right;
+        margin-bottom: 5px;
+      }
+      .rl {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.63rem;
+        color: var(--mute);
+        margin-top: 4px;
+      }
+
+      /* ── LOGIN ────────────────────────────────────── */
+      #screen-login {
+        justify-content: center;
+        background:
+          radial-gradient(
+            ellipse at 25% 15%,
+            rgba(91, 14, 166, 0.5) 0%,
+            transparent 55%
+          ),
+          radial-gradient(
+            ellipse at 78% 85%,
+            rgba(124, 58, 237, 0.22) 0%,
+            transparent 55%
+          ),
+          var(--deep);
+      }
+      .login-mark {
+        width: 58px;
+        height: 58px;
+        border-radius: 14px;
+        background: var(--grad);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 44px rgba(124, 58, 237, 0.4);
+        margin: 0 auto 12px;
+      }
+      .gbtn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        width: 100%;
+        height: 44px;
+        border-radius: var(--rs);
+        background: #fff;
+        color: #1a1a1a;
+        font-weight: 600;
+        font-size: 0.84rem;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+        transition: all 0.14s;
+      }
+      .gbtn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+      }
+      .gbtn:active {
+        transform: scale(0.97);
+      }
+
+      /* ── ONBOARDING ───────────────────────────────── */
+      #screen-onboarding {
+        background:
+          radial-gradient(
+            ellipse at 20% 5%,
+            rgba(91, 14, 166, 0.55) 0%,
+            transparent 50%
+          ),
+          var(--deep);
+        justify-content: space-between;
+      }
+      .ob-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 18px;
+        background: rgba(124, 58, 237, 0.12);
+        border: 1px solid var(--rim);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+      }
+      .ob-fact {
+        background: rgba(124, 58, 237, 0.07);
+        border: 1px solid rgba(124, 58, 237, 0.18);
+        border-radius: var(--rs);
+        padding: 11px 13px;
+        color: var(--lil);
+        font-size: 0.78rem;
+        line-height: 1.65;
+      }
+      .dots {
+        display: flex;
+        justify-content: center;
+        gap: 5px;
+      }
+      .dot {
+        height: 4px;
+        border-radius: 99px;
+        background: rgba(255, 255, 255, 0.2);
+        transition: all 0.28s;
+      }
+      .dot.on {
+        background: var(--lil);
+        width: 18px;
+      }
+      .dot:not(.on) {
+        width: 4px;
+      }
+
+      /* ── DASHBOARD ────────────────────────────────── */
+      .dh {
+        padding: 16px 16px 14px;
+        padding-top: calc(14px + env(safe-area-inset-top));
+        background: linear-gradient(
+          180deg,
+          rgba(91, 14, 166, 0.45) 0%,
+          transparent 100%
+        );
+      }
+      @media (min-width: 768px) {
+        .dh {
+          padding-top: 22px;
+        }
+      }
+      .greet {
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-size: 1.3rem;
+        font-weight: 800;
+        line-height: 1.1;
+      }
+      .phase-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 9px;
+        border-radius: 99px;
+        font-size: 0.67rem;
+        font-weight: 600;
+        border: 1px solid;
+      }
+      .pcard {
+        border-radius: var(--r);
+        padding: 13px 15px;
+        margin: 0 13px 13px;
+        position: relative;
+        z-index: 2;
+        box-shadow: 0 6px 22px rgba(0, 0, 0, 0.32);
+      }
+      .vgrid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 7px;
+      }
+      .vit {
+        background: var(--layer);
+        border: 1px solid var(--rim);
+        border-radius: var(--rs);
+        padding: 9px 7px;
+        text-align: center;
+      }
+      .vv {
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+      .vl {
+        font-size: 0.6rem;
+        color: var(--mute);
+        margin-top: 2px;
+      }
+      .apair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 9px;
+      }
+
+      /* ── TRACKER ──────────────────────────────────── */
+      .tc-card {
+        background: var(--layer);
+        border: 1px solid var(--rim);
+        border-radius: var(--r);
+        padding: 13px 15px;
+      }
+      .tl {
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-size: 0.82rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 9px;
+      }
+      .th {
+        font-size: 0.7rem;
+        color: var(--mute);
+        margin-bottom: 7px;
+      }
+      .chip {
+        padding: 4px 9px;
+        border-radius: 99px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        border: 1px solid var(--rim);
+        color: var(--mute);
+        background: transparent;
+        transition: all 0.13s;
+        cursor: pointer;
+      }
+      .chip.on {
+        background: rgba(124, 58, 237, 0.16);
+        border-color: rgba(124, 58, 237, 0.45);
+        color: var(--lil);
+      }
+
+      /* ── INSIGHTS ─────────────────────────────────── */
+      .cbars {
+        display: flex;
+        align-items: flex-end;
+        gap: 4px;
+        height: 82px;
+        padding: 0 2px;
+      }
+      .bar {
+        flex: 1;
+        border-radius: 3px 3px 0 0;
+        min-height: 2px;
+        background: linear-gradient(to top, var(--ink), var(--vi));
+        transition: height 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        opacity: 0.88;
+      }
+      .spill {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+      .sp {
+        flex: 1;
+        min-width: 76px;
+        background: var(--layer);
+        border: 1px solid var(--rim);
+        border-radius: var(--rs);
+        padding: 9px 11px;
+      }
+      .sn {
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+      }
+      .sl {
+        font-size: 0.63rem;
+        color: var(--mute);
+        margin-top: 2px;
+      }
+      .ii {
+        display: flex;
+        gap: 10px;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--rim);
+      }
+      .ii:last-child {
+        border-bottom: none;
+      }
+      .ii-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        flex-shrink: 0;
+        background: rgba(124, 58, 237, 0.13);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .ii-icon svg {
+        width: 14px;
+        height: 14px;
+        color: var(--lil);
+      }
+
+      /* ── CALENDAR ─────────────────────────────────── */
+      .cgrid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 3px;
+      }
+      .chdr {
+        text-align: center;
+        font-size: 0.59rem;
+        font-weight: 600;
+        color: var(--mute);
+        padding: 4px 0;
+      }
+      .cday {
+        aspect-ratio: 1;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.7rem;
+        font-weight: 600;
+        transition: all 0.11s;
+      }
+      .cday:active {
+        transform: scale(0.88);
+      }
+      .cday.tod {
+        border: 1px solid var(--lil);
+      }
+      .cday.sel {
+        background: var(--vi) !important;
+        color: #fff;
+      }
+      .cday.hi {
+        background: rgba(91, 14, 166, 0.68);
+        color: #fff;
+      }
+      .cday.good {
+        background: rgba(124, 58, 237, 0.42);
+        color: #fff;
+      }
+      .cday.lo {
+        background: rgba(124, 58, 237, 0.18);
+      }
+      .cday.fut {
+        opacity: 0.22;
+        cursor: default;
+      }
+      .cday.emp {
+        pointer-events: none;
+      }
+      .cdot {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.55);
+        margin-top: 1px;
+      }
+      .ddet {
+        margin-top: 12px;
+        animation: sUp 0.19s ease;
+      }
+      .mrow {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 9px;
+      }
+      .ms {
+        text-align: center;
+      }
+      .mv {
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-weight: 700;
+        font-size: 0.88rem;
+      }
+      .ml {
+        font-size: 0.6rem;
+        color: var(--mute);
+      }
+
+      /* ── PARTNER ──────────────────────────────────── */
+      .av {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--grad);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #fff;
+        flex-shrink: 0;
+      }
+      .pb {
+        height: 4px;
+        border-radius: 99px;
+        background: rgba(255, 255, 255, 0.07);
+        overflow: hidden;
+      }
+      .pf {
+        height: 100%;
+        border-radius: 99px;
+        background: var(--grad);
+      }
+
+      /* ── CHAT ─────────────────────────────────────── */
+      #chat-fab {
+        position: fixed;
+        right: 14px;
+        z-index: 150;
+        bottom: calc(var(--nav-h) + 13px);
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: var(--grad);
+        box-shadow: 0 4px 18px rgba(91, 14, 166, 0.48);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        transition:
+          transform 0.18s,
+          box-shadow 0.18s;
+      }
+      #chat-fab:hover {
+        transform: scale(1.06);
+        box-shadow: 0 6px 26px rgba(91, 14, 166, 0.58);
+      }
+      #chat-fab:active {
+        transform: scale(0.9);
+      }
+      @media (min-width: 768px) {
+        #chat-fab {
+          bottom: 18px;
+          right: 18px;
+        }
+      }
+      .unread-dot {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--ok);
+        border: 2px solid var(--deep);
+        display: none;
+      }
+
+      #chat-panel {
+        position: fixed;
+        right: 14px;
+        bottom: calc(var(--nav-h) + 70px);
+        width: calc(100vw - 28px);
+        max-width: 340px;
+        height: min(460px, calc(100dvh - var(--nav-h) - 86px));
+        z-index: 160;
+        border-radius: var(--r) var(--r) var(--rs) var(--r);
+        background: var(--void);
+        border: 1px solid var(--rim);
+        box-shadow:
+          0 14px 50px rgba(0, 0, 0, 0.55),
+          0 0 0 1px rgba(124, 58, 237, 0.08);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(10px) scale(0.97);
+        transform-origin: bottom right;
+        transition:
+          opacity 0.19s ease,
+          transform 0.19s ease;
+      }
+      #chat-panel.on {
+        opacity: 1;
+        pointer-events: all;
+        transform: translateY(0) scale(1);
+      }
+      @media (min-width: 768px) {
+        #chat-panel {
+          right: 20px;
+          bottom: 74px;
+          width: 330px;
+          height: min(460px, calc(100dvh - 96px));
+        }
+      }
+
+      .ch {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 11px 13px;
+        background: var(--layer);
+        border-bottom: 1px solid var(--rim);
+        flex-shrink: 0;
+      }
+      .cadot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--ok);
+        animation: pdot 2s infinite;
+      }
+      @keyframes pdot {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.55;
+          transform: scale(0.82);
+        }
+      }
+      .cms {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+      .cmsg {
+        display: flex;
+        gap: 6px;
+        animation: sUp 0.17s ease;
+      }
+      .cmsg.u {
+        flex-direction: row-reverse;
+      }
+      .cav {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: var(--grad);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        align-self: flex-end;
+      }
+      .cav svg {
+        width: 11px;
+        height: 11px;
+        color: #fff;
+      }
+      .cbub {
+        max-width: 76%;
+        padding: 7px 11px;
+        font-size: 0.79rem;
+        line-height: 1.5;
+      }
+      .cmsg.ai .cbub {
+        background: var(--plate);
+        border-radius: 3px 11px 11px 11px;
+        color: var(--text);
+      }
+      .cmsg.u .cbub {
+        background: var(--grad);
+        color: #fff;
+        border-radius: 11px 3px 11px 11px;
+      }
+      .cin-row {
+        display: flex;
+        gap: 7px;
+        padding: 9px 11px;
+        border-top: 1px solid var(--rim);
+        background: var(--layer);
+        flex-shrink: 0;
+      }
+      .cin {
+        flex: 1;
+        background: var(--void);
+        border: 1px solid var(--rim);
+        color: var(--text);
+        border-radius: 18px;
+        padding: 7px 12px;
+        font-size: 0.79rem;
+        resize: none;
+        max-height: 72px;
+        overflow-y: auto;
+      }
+      .cin:focus {
+        border-color: rgba(124, 58, 237, 0.48);
+      }
+      .sbtn {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: var(--grad);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        align-self: flex-end;
+        transition: all 0.13s;
+      }
+      .sbtn:disabled {
+        background: var(--layer);
+        color: var(--mute);
+      }
+      .sbtn:not(:disabled):active {
+        transform: scale(0.86);
+      }
+      .sbtn svg {
+        width: 13px;
+        height: 13px;
+      }
+      .tdots span {
+        display: inline-block;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--lil);
+        animation: bl 1.2s infinite;
+        margin: 0 1px;
+      }
+      .tdots span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .tdots span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes bl {
+        0%,
+        80%,
+        100% {
+          opacity: 0.22;
+        }
+        40% {
+          opacity: 1;
+        }
+      }
+      .suggs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        padding: 9px 10px 4px;
+        border-top: 1px solid var(--rim);
+      }
+      .sug {
+        padding: 4px 9px;
+        border-radius: 99px;
+        font-size: 0.69rem;
+        background: rgba(124, 58, 237, 0.1);
+        border: 1px solid rgba(124, 58, 237, 0.22);
+        color: var(--lil);
+        cursor: pointer;
+        transition: all 0.11s;
+        white-space: nowrap;
+      }
+      .sug:active {
+        background: rgba(124, 58, 237, 0.22);
+        transform: scale(0.94);
+      }
+
+      /* ── ANIMATIONS ───────────────────────────────── */
+      @keyframes fUp {
+        from {
+          opacity: 0;
+          transform: translateY(9px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes sUp {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes shim {
+        0% {
+          background-position: -200% center;
+        }
+        100% {
+          background-position: 200% center;
+        }
+      }
+      .spin {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.55s linear infinite;
+      }
+
+      /* AOS */
+      [data-a] {
+        opacity: 0;
+        transform: translateY(9px);
+        transition:
+          opacity 0.32s ease,
+          transform 0.32s ease;
+      }
+      [data-a].done {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      [data-a="1"] {
+        transition-delay: 0.04s;
+      }
+      [data-a="2"] {
+        transition-delay: 0.09s;
+      }
+      [data-a="3"] {
+        transition-delay: 0.13s;
+      }
+      [data-a="4"] {
+        transition-delay: 0.17s;
+      }
+      [data-a="5"] {
+        transition-delay: 0.21s;
+      }
+      [data-a="6"] {
+        transition-delay: 0.25s;
+      }
+
+      /* ── UTILS ────────────────────────────────────── */
+      .p3 {
+        padding: 10px 12px;
+      }
+      .p4 {
+        padding: 13px 15px;
+      }
+      .px4 {
+        padding-left: 15px;
+        padding-right: 15px;
+      }
+      .px5 {
+        padding-left: 17px;
+        padding-right: 17px;
+      }
+      .mb2 {
+        margin-bottom: 7px;
+      }
+      .mb3 {
+        margin-bottom: 11px;
+      }
+      .mb4 {
+        margin-bottom: 15px;
+      }
+      .mt2 {
+        margin-top: 7px;
+      }
+      .mt3 {
+        margin-top: 11px;
+      }
+      .mt4 {
+        margin-top: 15px;
+      }
+      .f {
+        display: flex;
+      }
+      .col {
+        flex-direction: column;
+      }
+      .ic {
+        align-items: center;
+      }
+      .jb {
+        justify-content: space-between;
+      }
+      .jc {
+        justify-content: center;
+      }
+      .g2 {
+        gap: 7px;
+      }
+      .g3 {
+        gap: 11px;
+      }
+      .g4 {
+        gap: 15px;
+      }
+      .f1 {
+        flex: 1;
+      }
+      .w100 {
+        width: 100%;
+      }
+      .tc {
+        text-align: center;
+      }
+      .mu {
+        color: var(--mute);
+      }
+      .so {
+        color: var(--lil);
+      }
+      .ok {
+        color: var(--ok);
+      }
+      .er {
+        color: var(--warn);
+      }
+      .sm {
+        font-size: 0.77rem;
+      }
+      .xs {
+        font-size: 0.67rem;
+      }
+      .bold {
+        font-weight: 700;
+      }
+      .semi {
+        font-weight: 500;
+      }
+      .div {
+        height: 1px;
+        background: var(--rim);
+        margin: 10px 0;
+      }
+      .scr {
+        overflow-y: auto;
+        flex: 1;
+      }
+      .hid {
+        display: none !important;
+      }
+      .ebox {
+        padding: 9px 11px;
+        background: rgba(248, 113, 113, 0.09);
+        border: 1px solid rgba(248, 113, 113, 0.22);
+        border-radius: var(--rs);
+        color: #fca5a5;
+        font-size: 0.75rem;
+      }
+      .obox {
+        padding: 9px 11px;
+        background: rgba(52, 211, 153, 0.09);
+        border: 1px solid rgba(52, 211, 153, 0.22);
+        border-radius: var(--rs);
+        color: var(--ok);
+        font-size: 0.75rem;
+      }
+      .pgt {
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-weight: 800;
+        font-size: 1.05rem;
+        padding: 14px 16px 9px;
+        padding-top: calc(12px + env(safe-area-inset-top));
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      @media (min-width: 768px) {
+        .pgt {
+          padding-top: 18px;
+        }
+      }
+      .pgt svg {
+        width: 17px;
+        height: 17px;
+        color: var(--lil);
+      }
+      .bb {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        background: var(--layer);
+        border: 1px solid var(--rim);
+        color: var(--text);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.13s;
+        flex-shrink: 0;
+      }
+      .bb:active {
+        transform: scale(0.88);
+      }
+      .bb svg {
+        width: 14px;
+        height: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="bb"></div>
+    <div id="app">
+      <nav id="nav">
+        <div class="nav-logo">
+          <div class="nav-logo-mark">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#fff"
+              stroke-width="2.5"
+              width="15"
+              height="15"
+            >
+              <path
+                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+              />
+            </svg>
+          </div>
+          <span
+            class="fd bold"
+            style="font-size: 0.88rem; letter-spacing: -0.01em"
+            >Velour</span
+          >
+        </div>
+        <button class="ni on" data-nav="dashboard">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+          <span>Home</span>
+        </button>
+        <button class="ni" data-nav="tracker">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+          <span>Track</span>
+        </button>
+        <button class="ni" data-nav="calendar">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="3" y="4" width="18" height="18" rx="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          <span>Calendar</span>
+        </button>
+        <button class="ni" data-nav="insights">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+          <span>Insights</span>
+        </button>
+        <button class="ni" data-nav="partner">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
+            />
+          </svg>
+          <span>Partner</span>
+        </button>
+        <div class="nav-foot">
+          <div class="div" style="margin: 0 0 8px"></div>
+          <button class="ni" id="signout-btn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            <span>Sign out</span>
+          </button>
+        </div>
+      </nav>
+
+      <div id="ct">
+        <!-- LOGIN -->
+        <div id="screen-login" class="sc on">
+          <div
+            class="f col ic jc"
+            style="
+              height: 100%;
+              padding: 28px 18px 24px;
+              max-width: 360px;
+              margin: auto;
+              gap: 11px;
+            "
+          >
+            <div data-a="1" class="tc">
+              <div class="login-mark">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#fff"
+                  stroke-width="2.5"
+                  width="26"
+                  height="26"
+                >
+                  <path
+                    d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                  />
+                </svg>
+              </div>
+              <h1 style="font-size: 1.9rem; margin-top: 5px" class="mb2">
+                Velour
+              </h1>
+              <p class="mu sm">
+                Premium wellness companion,<br />built different.
+              </p>
+            </div>
+            <div class="w100 f col g3 mt3" data-a="2">
+              <button class="gbtn" id="btn-google">
+                <svg viewBox="0 0 24 24" width="17" height="17">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  />
+                </svg>
+                Continue with Google
+              </button>
+              <button class="btn btn-o" id="btn-guest" style="height: 38px">
+                Continue without account
+              </button>
+            </div>
+            <div id="login-err" class="ebox hid w100"></div>
+            <p class="xs mu tc" style="margin-top: 3px">
+              Privacy-first. Partner sharing is always opt-in.
+            </p>
+          </div>
+        </div>
+
+        <!-- ONBOARDING -->
+        <div id="screen-onboarding" class="sc">
+          <div
+            class="f col"
+            style="height: 100%; max-width: 380px; margin: auto; width: 100%"
+          >
+            <div
+              class="f ic g3 p4"
+              style="
+                padding-top: calc(14px + env(safe-area-inset-top));
+                border-bottom: 1px solid var(--rim);
+              "
+            >
+              <div
+                style="
+                  width: 24px;
+                  height: 24px;
+                  border-radius: 6px;
+                  background: var(--grad);
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#fff"
+                  stroke-width="2.5"
+                  width="12"
+                  height="12"
+                >
+                  <path
+                    d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                  />
+                </svg>
+              </div>
+              <span class="fd bold" style="font-size: 0.84rem">Velour</span>
+            </div>
+            <div class="scr f col g4 p4" style="padding-top: 24px">
+              <div class="tc"><div class="ob-icon" id="ob-icon"></div></div>
+              <div class="tc">
+                <h2 id="ob-title" class="mb2"></h2>
+                <p id="ob-sub" class="mu sm" style="line-height: 1.65"></p>
+              </div>
+              <div id="ob-fact" class="ob-fact"></div>
+            </div>
+            <div
+              class="p4 f col g3"
+              style="padding-bottom: calc(14px + env(safe-area-inset-bottom))"
+            >
+              <div class="dots mb2">
+                <div class="dot on"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+              </div>
+              <button class="btn btn-p btn-lg" id="ob-next">Continue</button>
+              <button class="btn btn-g sm" id="ob-skip">Skip intro</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DASHBOARD -->
+        <div id="screen-dashboard" class="sc">
+          <div class="scr">
+            <div class="dh">
+              <div
+                class="f jb ic mb3"
+                style="padding-top: env(safe-area-inset-top)"
+              >
+                <div>
+                  <div id="d-greet" class="greet"></div>
+                  <div
+                    id="d-name"
+                    class="mu xs mt2"
+                    style="margin-top: 3px"
+                  ></div>
+                </div>
+                <button
+                  id="notif-btn"
+                  style="
+                    width: 34px;
+                    height: 34px;
+                    border-radius: 9px;
+                    background: rgba(255, 255, 255, 0.07);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border: 1px solid var(--rim);
+                  "
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    width="16"
+                    height="16"
+                  >
+                    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 01-3.46 0" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div id="pcard" class="pcard" data-a="1">
+              <div class="f ic g3 mb3">
+                <div
+                  id="p-icon"
+                  style="
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 9px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                  "
+                ></div>
+                <div class="f1">
+                  <div class="xs mu">Current Phase</div>
+                  <div
+                    id="p-name"
+                    class="fd bold"
+                    style="font-size: 0.9rem"
+                  ></div>
+                </div>
+                <div id="p-pill" class="phase-pill"></div>
+              </div>
+              <p id="p-desc" class="sm mu mb3" style="line-height: 1.6"></p>
+              <div id="p-tips"></div>
+            </div>
+            <div class="px5 f col" style="gap: 11px; padding-bottom: 22px">
+              <div id="vsec" class="hid" data-a="2">
+                <div class="semi xs mb2 mu">Today's Vitals</div>
+                <div class="vgrid">
+                  <div class="vit">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="var(--lil)"
+                      stroke-width="2"
+                      width="13"
+                      height="13"
+                      style="margin-bottom: 3px"
+                    >
+                      <path
+                        d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
+                      />
+                    </svg>
+                    <div id="v-mood" class="vv"></div>
+                    <div class="vl">Mood</div>
+                  </div>
+                  <div class="vit">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="var(--lil)"
+                      stroke-width="2"
+                      width="13"
+                      height="13"
+                      style="margin-bottom: 3px"
+                    >
+                      <polygon
+                        points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"
+                      />
+                    </svg>
+                    <div id="v-en" class="vv"></div>
+                    <div class="vl">Energy</div>
+                  </div>
+                  <div class="vit">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="var(--lil)"
+                      stroke-width="2"
+                      width="13"
+                      height="13"
+                      style="margin-bottom: 3px"
+                    >
+                      <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" />
+                    </svg>
+                    <div id="v-st" class="vv"></div>
+                    <div class="vl">Stress</div>
+                  </div>
+                </div>
+              </div>
+              <div class="apair" data-a="3">
+                <button class="btn btn-p" id="d-log">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    width="14"
+                    height="14"
+                  >
+                    <path
+                      d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"
+                    />
+                    <path
+                      d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
+                    /></svg
+                  >Log Today
+                </button>
+                <button class="btn btn-o" id="d-ins">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    width="14"
+                    height="14"
+                  >
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg
+                  >Insights
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TRACKER -->
+        <div id="screen-tracker" class="sc">
+          <div
+            class="pgt"
+            style="padding-top: calc(12px + env(safe-area-inset-top))"
+          >
+            <button class="bb" data-back>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            Log Today
+          </div>
+          <div class="scr px5 f col" style="gap: 9px; padding-bottom: 28px">
+            <div class="tc-card" data-a="1">
+              <div class="tl">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--lil)"
+                  stroke-width="2"
+                  width="14"
+                  height="14"
+                >
+                  <path
+                    d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
+                  />
+                </svg>
+                Mood
+                <div class="rv" style="margin-left: auto; margin-bottom: 0">
+                  <span id="mv">5</span>/10
+                </div>
+              </div>
+              <div id="mq" class="th" style="font-style: italic"></div>
+              <input type="range" id="r-m" min="1" max="10" value="5" />
+              <div class="rl"><span>Low</span><span>High</span></div>
+            </div>
+            <div class="tc-card" data-a="2">
+              <div class="tl">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--lil)"
+                  stroke-width="2"
+                  width="14"
+                  height="14"
+                >
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                Energy
+                <div class="rv" style="margin-left: auto; margin-bottom: 0">
+                  <span id="ev">5</span>/10
+                </div>
+              </div>
+              <input type="range" id="r-e" min="1" max="10" value="5" />
+            </div>
+            <div class="tc-card" data-a="3">
+              <div class="tl">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--lil)"
+                  stroke-width="2"
+                  width="14"
+                  height="14"
+                >
+                  <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" />
+                </svg>
+                Stress
+                <div class="rv" style="margin-left: auto; margin-bottom: 0">
+                  <span id="sv">5</span>/10
+                </div>
+              </div>
+              <div id="smsg" class="th"></div>
+              <input type="range" id="r-s" min="1" max="10" value="5" />
+            </div>
+            <div class="tc-card" data-a="4">
+              <div class="tl">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--lil)"
+                  stroke-width="2"
+                  width="14"
+                  height="14"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                Focus
+                <div class="rv" style="margin-left: auto; margin-bottom: 0">
+                  <span id="fv">5</span>/10
+                </div>
+              </div>
+              <input type="range" id="r-f" min="1" max="10" value="5" />
+            </div>
+            <div class="tc-card" data-a="5">
+              <div class="tl">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--lil)"
+                  stroke-width="2"
+                  width="14"
+                  height="14"
+                >
+                  <path d="M17 18a5 5 0 00-10 0" />
+                  <line x1="12" y1="2" x2="12" y2="9" />
+                  <line x1="4.22" y1="10.22" x2="5.64" y2="11.64" />
+                  <line x1="1" y1="18" x2="3" y2="18" />
+                  <line x1="21" y1="18" x2="23" y2="18" />
+                  <line x1="18.36" y1="11.64" x2="19.78" y2="10.22" />
+                </svg>
+                Sleep
+                <div class="rv" style="margin-left: auto; margin-bottom: 0">
+                  <span id="slv">7.0</span>h
+                </div>
+              </div>
+              <div id="slmsg" class="th"></div>
+              <input
+                type="range"
+                id="r-sl"
+                min="0"
+                max="12"
+                step="0.5"
+                value="7"
+              />
+              <div class="rl"><span>0h</span><span>12h</span></div>
+            </div>
+            <div class="tc-card" data-a="6">
+              <div class="f ic jb mb2">
+                <div class="tl" style="margin-bottom: 0">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="var(--lil)"
+                    width="14"
+                    height="14"
+                  >
+                    <path
+                      d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
+                    />
+                  </svg>
+                  Drive
+                  <span class="xs mu" style="font-weight: 400; margin-left: 4px"
+                    >(optional)</span
+                  >
+                </div>
+                <label class="tog"
+                  ><input type="checkbox" id="lib-tog" /><span
+                    class="tog-sl"
+                  ></span
+                ></label>
+              </div>
+              <div id="lib-row" class="hid">
+                <div class="rv tc"><span id="lv">5</span>/10</div>
+                <input type="range" id="r-l" min="1" max="10" value="5" />
+              </div>
+            </div>
+            <div class="tc-card">
+              <div class="tl">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--lil)"
+                  stroke-width="2"
+                  width="14"
+                  height="14"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                  <line x1="9" y1="9" x2="9.01" y2="9" />
+                  <line x1="15" y1="9" x2="15.01" y2="9" /></svg
+                >How Are You Feeling?
+              </div>
+              <div class="th">Pick all that apply</div>
+              <div
+                id="sx-grid"
+                class="f"
+                style="flex-wrap: wrap; gap: 5px; margin-top: 7px"
+              ></div>
+            </div>
+            <div class="tc-card">
+              <div class="tl">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--lil)"
+                  stroke-width="2"
+                  width="14"
+                  height="14"
+                >
+                  <path
+                    d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+                  /></svg
+                >Notes
+              </div>
+              <textarea
+                id="nt-inp"
+                class="inp"
+                rows="3"
+                placeholder="What's on your mind?"
+                style="resize: none"
+              ></textarea>
+            </div>
+            <button
+              class="btn btn-p btn-lg"
+              id="save-btn"
+              style="margin-top: 3px"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                width="14"
+                height="14"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Save Today's Log
+            </button>
+          </div>
+        </div>
+
+        <!-- INSIGHTS -->
+        <div id="screen-insights" class="sc">
+          <div class="pgt">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg
+            >Insights
+          </div>
+          <div
+            class="scr px5 f col"
+            style="gap: 11px; padding-bottom: 28px"
+            id="ins-body"
+          ></div>
+        </div>
+
+        <!-- CALENDAR -->
+        <div id="screen-calendar" class="sc">
+          <div class="pgt">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" /></svg
+            >Calendar
+          </div>
+          <div class="scr px5" style="padding-bottom: 28px">
+            <div class="f ic jb mb3">
+              <button class="bb" id="cal-p">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  width="14"
+                  height="14"
+                >
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <span
+                id="cal-mo"
+                class="fd bold"
+                style="font-size: 0.9rem"
+              ></span>
+              <button class="bb" id="cal-n">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  width="14"
+                  height="14"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            </div>
+            <div class="cgrid mb2" id="cal-hd"></div>
+            <div class="cgrid" id="cal-gr"></div>
+            <div class="f g3 mt3" style="flex-wrap: wrap">
+              <div class="f ic g2 xs mu">
+                <div
+                  style="
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 2px;
+                    background: rgba(91, 14, 166, 0.68);
+                  "
+                ></div>
+                Peak
+              </div>
+              <div class="f ic g2 xs mu">
+                <div
+                  style="
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 2px;
+                    background: rgba(124, 58, 237, 0.42);
+                  "
+                ></div>
+                Good
+              </div>
+              <div class="f ic g2 xs mu">
+                <div
+                  style="
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 2px;
+                    background: rgba(124, 58, 237, 0.18);
+                  "
+                ></div>
+                Low
+              </div>
+            </div>
+            <div id="day-det" class="ddet hid"></div>
+          </div>
+        </div>
+
+        <!-- PARTNER -->
+        <div id="screen-partner" class="sc">
+          <div class="pgt">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
+              /></svg
+            >Partner Sync
+          </div>
+          <div
+            class="scr px5 f col"
+            style="gap: 9px; padding-bottom: 28px"
+            id="pt-body"
+          ></div>
+        </div>
+      </div>
+      <!-- #ct -->
+
+      <!-- CHAT FAB -->
+      <button id="chat-fab">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#fff"
+          stroke-width="2"
+          width="21"
+          height="21"
+        >
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+        </svg>
+        <div class="unread-dot" id="cu"></div>
+      </button>
+
+      <!-- CHAT PANEL -->
+      <div id="chat-panel">
+        <div class="ch">
+          <div
+            style="
+              width: 28px;
+              height: 28px;
+              border-radius: 7px;
+              background: var(--grad);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#fff"
+              stroke-width="2.5"
+              width="14"
+              height="14"
+            >
+              <path
+                d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+              />
+            </svg>
+          </div>
+          <div class="f1">
+            <div class="semi" style="font-size: 0.79rem">Velour AI</div>
+            <div class="f ic g2">
+              <div class="cadot"></div>
+              <span class="xs mu">Wellness coach</span>
+            </div>
+          </div>
+          <button
+            id="chat-close"
+            style="
+              width: 26px;
+              height: 26px;
+              border-radius: 6px;
+              background: var(--plate);
+              color: var(--mute);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              width="12"
+              height="12"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="cms" id="chat-msgs">
+          <div
+            class="suggs"
+            id="chat-sugg"
+            style="border-top: none; padding-top: 4px"
+          >
+            <div class="xs mu w100 mb2" style="margin-bottom: 5px">
+              Quick prompts
+            </div>
+            <button class="sug" data-q="Why am I always tired?">
+              Always tired?
+            </button>
+            <button class="sug" data-q="How to boost energy naturally">
+              Boost energy
+            </button>
+            <button class="sug" data-q="Best stress reduction techniques">
+              Stress hacks
+            </button>
+            <button class="sug" data-q="Sleep optimization tips">
+              Sleep tips
+            </button>
+            <button class="sug" data-q="How to improve focus">
+              Improve focus
+            </button>
+          </div>
+        </div>
+        <div class="cin-row">
+          <textarea
+            id="chat-in"
+            class="cin"
+            rows="1"
+            placeholder="Ask anything..."
+          ></textarea>
+          <button id="chat-send" class="sbtn" disabled>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- #app -->
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+      import {
+        getAuth,
+        GoogleAuthProvider,
+        signInWithPopup,
+        onAuthStateChanged,
+        signOut,
+      } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+      import {
+        getFirestore,
+        doc,
+        setDoc,
+        getDoc,
+        collection,
+        query,
+        where,
+        orderBy,
+        limit,
+        getDocs,
+        onSnapshot,
+        writeBatch,
+      } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+      /* CONFIG — replace these */
+      const FB = {
+        apiKey: "AIzaSyAB0HEagjsCbj9hKzvoDhCd4IjRt8ShHys",
+    authDomain: "vecour-e15e8.firebaseapp.com",
+    projectId: "vecour-e15e8",
+    storageBucket: "vecour-e15e8.firebasestorage.app",
+    messagingSenderId: "841316633130",
+    appId: "1:841316633130:web:487a86e34c7c534998d153",
+    measurementId: "G-YP9F062HXZ"
+      };
+      const GK = "AIzaSyDvcK_Tw4L9omTCEgi_hYuLtqY-kIMGcnM";
+      const GU = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GK}`;
+
+      /* Firebase */
+      let auth,
+        db,
+        me = null,
+        fbOk = false;
+      try {
+        if (!FB.apiKey.startsWith("YOUR_")) {
+          const a = initializeApp(FB);
+          auth = getAuth(a);
+          db = getFirestore(a);
+          fbOk = true;
+        }
+      } catch (e) {
+        console.warn("FB:", e.message);
+      }
+
+      /* IDB */
+      let idb = null;
+      const openDB = () =>
+        new Promise((res, rej) => {
+          const r = indexedDB.open("velour2", 1);
+          r.onupgradeneeded = (e) => {
+            const d = e.target.result;
+            if (!d.objectStoreNames.contains("logs"))
+              d.createObjectStore("logs", { keyPath: "date" });
+            if (!d.objectStoreNames.contains("prefs"))
+              d.createObjectStore("prefs", { keyPath: "key" });
+          };
+          r.onsuccess = (e) => res(e.target.result);
+          r.onerror = (e) => rej(e.target.error);
+        });
+      const op = (s, m, fn) =>
+        new Promise((res, rej) => {
+          const r = fn(idb.transaction(s, m).objectStore(s));
+          r.onsuccess = (e) => res(e.target.result);
+          r.onerror = (e) => rej(e.target.error);
+        });
+      const iGet = (s, k) => op(s, "readonly", (o) => o.get(k));
+      const iPut = (s, v) => op(s, "readwrite", (o) => o.put(v));
+      const iAll = (s) => op(s, "readonly", (o) => o.getAll());
+      const getPref = (k, d = null) =>
+        iGet("prefs", k).then((r) => (r ? r.value : d));
+      const setPref = (k, v) => iPut("prefs", { key: k, value: v });
+
+      /* Data */
+      const tod = () => new Date().toISOString().slice(0, 10);
+      async function saveLog(log) {
+        log.date = log.date || tod();
+        log.ts = Date.now();
+        await iPut("logs", log);
+        if (fbOk && me) {
+          try {
+            const { notes: _, ...p } = log;
+            await setDoc(doc(db, "users", me.uid, "logs", log.date), p, {
+              merge: true,
+            });
+          } catch (e) {}
+        }
+      }
+      const getLog = () => iGet("logs", tod());
+      const getLogs = () =>
+        iAll("logs").then((a) =>
+          a.sort((a, b) => b.date.localeCompare(a.date)),
+        );
+
+      /* Phases */
+      const PH = [
+        {
+          n: "Peak Performance",
+          s: "Peak",
+          c: "#5B0EA6",
+          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+          d: "Firing on all cylinders. Go conquer something.",
+          t: [
+            "Schedule your hardest tasks now",
+            "Great day for social commitments",
+          ],
+        },
+        {
+          n: "High Energy",
+          s: "High",
+          c: "#7C3AED",
+          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+          d: "Energy is up. Your future self thanks you.",
+          t: [
+            "Tackle the project you've been avoiding",
+            "Good day for creative work",
+          ],
+        },
+        {
+          n: "Balanced",
+          s: "Good",
+          c: "#6366F1",
+          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg>`,
+          d: "Steady as she goes. Reliable and consistent.",
+          t: ["Routine work flows smoothly", "Good day for planning"],
+        },
+        {
+          n: "Recovery Mode",
+          s: "Rest",
+          c: "#6B7280",
+          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M17 18a5 5 0 00-10 0"/><line x1="12" y1="2" x2="12" y2="9"/></svg>`,
+          d: "Your body sent a memo. Respect it.",
+          t: ["Prioritize sleep tonight", "Light movement only"],
+        },
+        {
+          n: "Recharge",
+          s: "Low",
+          c: "#4F46E5",
+          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="13" x2="23" y2="11"/></svg>`,
+          d: "Even phones need charging. Take notes.",
+          t: ["Cancel non-essential meetings", "Focus on nutrition today"],
+        },
+      ];
+      const phFrom = (l) => {
+        if (!l) return PH[2];
+        if (l.energy >= 8) return PH[0];
+        if (l.energy >= 6) return PH[1];
+        if (l.energy >= 4) return PH[2];
+        if (l.energy >= 2) return PH[3];
+        return PH[4];
+      };
+
+      const SX = [
+        "Fatigue",
+        "Irritability",
+        "Confidence spike",
+        "Low motivation",
+        "Laser focus",
+        "Brain fog",
+        "High drive",
+        "Social energy",
+        "Need solitude",
+        "Gym ready",
+        "Headache",
+        "Low mood",
+      ];
+      const MQ = [
+        "Even rocks have bad days. Valid.",
+        "Gravity feels personal today.",
+        "Not great, not terrible.",
+        "Could be worse.",
+        "Solidly mid.",
+        "Things are going.",
+        "Pretty decent.",
+        "Good day. Enjoy it.",
+        "Excellent. Hydrated?",
+        "Absolute peak energy.",
+      ];
+      const OB = [
+        {
+          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="30" height="30"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`,
+          t: "Welcome to Velour",
+          s: "Your premium wellness companion.",
+          f: "You have moods. They have patterns. Time to learn them.",
+        },
+        {
+          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="30" height="30"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+          t: "Track Your Patterns",
+          s: "Log mood, energy, stress and sleep daily.",
+          f: "Men have hormonal cycles too — less discussed, completely real.",
+        },
+        {
+          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="30" height="30"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,
+          t: "AI Wellness Coach",
+          s: "Ask anything wellness-related.",
+          f: "70% science, 30% wit, 100% on your side.",
+        },
+        {
+          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="30" height="30"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`,
+          t: "Your Data, Your Rules",
+          s: "Local-first. Privacy by design.",
+          f: "Your data stays on your device. Not for sale.",
+        },
+      ];
+
+      /* Ambient bubbles */
+      function spawnBubbles() {
+        const c = document.getElementById("bb");
+        for (let i = 0; i < 11; i++) {
+          const b = document.createElement("div");
+          b.className = "bub";
+          const sz = Math.random() * 55 + 18;
+          b.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random() * 100}%;animation-duration:${Math.random() * 17 + 11}s;animation-delay:${Math.random() * 18}s`;
+          c.appendChild(b);
+        }
+      }
+
+      /* AOS */
+      function aos(el = document) {
+        requestAnimationFrame(() => {
+          (el.querySelectorAll ? el : document)
+            .querySelectorAll("[data-a]")
+            .forEach((e) => {
+              setTimeout(
+                () => e.classList.add("done"),
+                parseInt(e.dataset.a || 0) * 50,
+              );
+            });
+        });
+      }
+
+      /* Nav */
+      let cur = "login",
+        hist = [];
+      function go(id, push = true) {
+        const prev = document.querySelector(".sc.on");
+        const next = document.getElementById("screen-" + id);
+        if (!next || next === prev) return;
+        if (prev) {
+          prev.classList.remove("on");
+          prev.classList.add("out");
+          setTimeout(() => prev.classList.remove("out"), 200);
+        }
+        next.classList.add("on");
+        next.scrollTop = 0;
+        if (push && !["login", "onboarding"].includes(id)) hist.push(id);
+        cur = id;
+        const mains = [
+          "dashboard",
+          "tracker",
+          "calendar",
+          "insights",
+          "partner",
+        ];
+        const nav = document.getElementById("nav"),
+          fab = document.getElementById("chat-fab");
+        if (mains.includes(id)) {
+          nav.classList.add("on");
+          fab.style.display = "flex";
+          document
+            .querySelectorAll(".ni[data-nav]")
+            .forEach((b) => b.classList.toggle("on", b.dataset.nav === id));
+        } else {
+          nav.classList.remove("on");
+          fab.style.display = "none";
+        }
+        if (id === "dashboard") rDash();
+        if (id === "insights") rIns();
+        if (id === "calendar") rCal();
+        if (id === "partner") rPart();
+        if (id === "tracker") resetT();
+        aos(next);
+      }
+      const goBack = () => {
+        if (hist.length > 1) {
+          hist.pop();
+          go(hist[hist.length - 1], false);
+        } else go("dashboard", false);
+      };
+
+      /* Onboarding */
+      let obP = 0;
+      function rOb() {
+        const d = OB[obP];
+        document.getElementById("ob-icon").innerHTML = d.ic;
+        document.getElementById("ob-title").textContent = d.t;
+        document.getElementById("ob-sub").textContent = d.s;
+        document.getElementById("ob-fact").textContent = d.f;
+        document
+          .querySelectorAll(".dot")
+          .forEach((el, i) => el.classList.toggle("on", i === obP));
+        const last = obP === OB.length - 1;
+        document.getElementById("ob-next").textContent = last
+          ? "Enter Velour"
+          : "Continue";
+        document.getElementById("ob-skip").classList.toggle("hid", last);
+      }
+      document.getElementById("ob-next").addEventListener("click", () => {
+        if (obP < OB.length - 1) {
+          obP++;
+          rOb();
+        } else {
+          setPref("onboarded", true);
+          go("dashboard");
+          hist = ["dashboard"];
+        }
+      });
+      document.getElementById("ob-skip").addEventListener("click", () => {
+        setPref("onboarded", true);
+        go("dashboard");
+        hist = ["dashboard"];
+      });
+
+      /* Auth */
+      async function afterLogin(user) {
+        me = user;
+        const ob = await getPref("onboarded");
+        if (!ob) go("onboarding");
+        else {
+          go("dashboard");
+          hist = ["dashboard"];
+        }
+      }
+      document
+        .getElementById("btn-google")
+        .addEventListener("click", async () => {
+          if (!fbOk) {
+            const e = document.getElementById("login-err");
+            e.textContent = "Firebase not configured. Use guest mode.";
+            e.classList.remove("hid");
+            return;
+          }
+          try {
+            const r = await signInWithPopup(auth, new GoogleAuthProvider());
+            await setDoc(
+              doc(db, "users", r.user.uid),
+              {
+                displayName: r.user.displayName || "",
+                email: r.user.email || "",
+                photoUrl: r.user.photoURL || "",
+                lastSeen: Date.now(),
+              },
+              { merge: true },
+            );
+            await afterLogin(r.user);
+          } catch (e) {
+            const el = document.getElementById("login-err");
+            el.textContent = "Sign-in failed: " + e.message;
+            el.classList.remove("hid");
+          }
+        });
+      document
+        .getElementById("btn-guest")
+        .addEventListener("click", () => afterLogin(null));
+      if (fbOk)
+        onAuthStateChanged(auth, async (u) => {
+          if (u && cur === "login") await afterLogin(u);
+        });
+      document
+        .getElementById("signout-btn")
+        ?.addEventListener("click", async () => {
+          if (fbOk && auth) await signOut(auth);
+          me = null;
+          hist = [];
+          document.getElementById("nav").classList.remove("on");
+          document.getElementById("chat-fab").style.display = "none";
+          go("login", false);
+        });
+
+      /* Dashboard */
+      const greet = () => {
+        const h = new Date().getHours();
+        return h < 5
+          ? "Night shift"
+          : h < 12
+            ? "Good morning"
+            : h < 17
+              ? "Good afternoon"
+              : h < 21
+                ? "Good evening"
+                : "Burning midnight oil";
+      };
+      async function rDash() {
+        document.getElementById("d-greet").textContent = greet();
+        const name = me?.displayName?.split(" ")[0];
+        document.getElementById("d-name").textContent = name
+          ? "Welcome back, " + name
+          : "";
+        const log = await getLog(),
+          ph = phFrom(log);
+        const pc = document.getElementById("pcard");
+        pc.style.background = `linear-gradient(135deg,${ph.c}20,${ph.c}09)`;
+        pc.style.borderColor = `${ph.c}2e`;
+        pc.style.border = "1px solid";
+        document.getElementById("p-icon").innerHTML = ph.ic;
+        document.getElementById("p-icon").style.cssText =
+          `width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${ph.c}1e;color:${ph.c}`;
+        document.getElementById("p-name").textContent = ph.n;
+        document.getElementById("p-name").style.color = ph.c;
+        document.getElementById("p-pill").textContent = ph.s;
+        document.getElementById("p-pill").style.cssText =
+          `display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:.67rem;font-weight:600;border:1px solid;color:${ph.c};border-color:${ph.c}44;background:${ph.c}14`;
+        document.getElementById("p-desc").textContent = ph.d;
+        document.getElementById("p-tips").innerHTML = ph.t
+          .map(
+            (t) =>
+              `<div class="f ic g2 sm mu" style="margin-bottom:3px"><div style="width:3px;height:3px;border-radius:50%;background:${ph.c};flex-shrink:0"></div>${t}</div>`,
+          )
+          .join("");
+        if (log) {
+          document.getElementById("vsec").classList.remove("hid");
+          document.getElementById("v-mood").textContent = log.mood + "/10";
+          document.getElementById("v-en").textContent = log.energy + "/10";
+          document.getElementById("v-st").textContent = log.stress + "/10";
+        } else document.getElementById("vsec").classList.add("hid");
+      }
+      document
+        .getElementById("d-log")
+        .addEventListener("click", () => go("tracker"));
+      document
+        .getElementById("d-ins")
+        .addEventListener("click", () => go("insights"));
+
+      /* Tracker */
+      let selSx = new Set();
+      function resetT() {
+        selSx.clear();
+        ["r-m", "r-e", "r-s", "r-f", "r-l"].forEach(
+          (id) => (document.getElementById(id).value = 5),
+        );
+        document.getElementById("r-sl").value = 7;
+        document.getElementById("lib-tog").checked = false;
+        document.getElementById("lib-row").classList.add("hid");
+        document.getElementById("nt-inp").value = "";
+        uRanges();
+        buildSx();
+      }
+      function uRanges() {
+        const m = +document.getElementById("r-m").value;
+        document.getElementById("mv").textContent = m;
+        document.getElementById("mq").textContent = '"' + MQ[m - 1] + '"';
+        document.getElementById("ev").textContent =
+          document.getElementById("r-e").value;
+        document.getElementById("sv").textContent =
+          document.getElementById("r-s").value;
+        const st = +document.getElementById("r-s").value;
+        document.getElementById("smsg").textContent =
+          st > 7 ? "High stress. Breathe." : st < 4 ? "Calm." : "Manageable.";
+        document.getElementById("fv").textContent =
+          document.getElementById("r-f").value;
+        const sl = +document.getElementById("r-sl").value;
+        document.getElementById("slv").textContent = sl.toFixed(1);
+        document.getElementById("slmsg").textContent =
+          sl < 6 ? "Under 6h. Risky." : sl >= 8 ? "8h+ Optimal." : "Decent.";
+        document.getElementById("lv").textContent =
+          document.getElementById("r-l").value;
+      }
+      ["r-m", "r-e", "r-s", "r-f", "r-sl", "r-l"].forEach((id) =>
+        document.getElementById(id).addEventListener("input", uRanges),
+      );
+      document
+        .getElementById("lib-tog")
+        .addEventListener("change", (e) =>
+          document
+            .getElementById("lib-row")
+            .classList.toggle("hid", !e.target.checked),
+        );
+      function buildSx() {
+        const g = document.getElementById("sx-grid");
+        g.innerHTML = SX.map(
+          (s) => `<button class="chip" data-s="${s}">${s}</button>`,
+        ).join("");
+        g.querySelectorAll(".chip").forEach((b) =>
+          b.addEventListener("click", () => {
+            selSx.has(b.dataset.s)
+              ? (selSx.delete(b.dataset.s), b.classList.remove("on"))
+              : (selSx.add(b.dataset.s), b.classList.add("on"));
+          }),
+        );
+      }
+      document
+        .getElementById("save-btn")
+        .addEventListener("click", async () => {
+          const btn = document.getElementById("save-btn");
+          btn.disabled = true;
+          btn.innerHTML = '<div class="spin"></div> Saving...';
+          await saveLog({
+            date: tod(),
+            mood: +document.getElementById("r-m").value,
+            energy: +document.getElementById("r-e").value,
+            stress: +document.getElementById("r-s").value,
+            focus: +document.getElementById("r-f").value,
+            sleepHours: +document.getElementById("r-sl").value,
+            libido: document.getElementById("lib-tog").checked
+              ? +document.getElementById("r-l").value
+              : null,
+            symptoms: JSON.stringify([...selSx]),
+            notes: document.getElementById("nt-inp").value,
+            phase: phFrom({ energy: +document.getElementById("r-e").value }).n,
+          });
+          btn.disabled = false;
+          btn.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg> Save Today\'s Log';
+          goBack();
+        });
+
+      /* Insights */
+      async function rIns() {
+        const body = document.getElementById("ins-body"),
+          logs = await getLogs();
+        if (!logs.length) {
+          body.innerHTML = `<div class="tc" style="padding:44px 16px">
+      <div style="width:48px;height:48px;border-radius:13px;background:var(--layer);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="20" height="20"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <h2 class="mb2">No data yet</h2><p class="mu sm">Start logging daily — insights appear here.</p></div>`;
+          return;
+        }
+        const avg = (fn) =>
+          (logs.reduce((s, l) => s + fn(l), 0) / logs.length).toFixed(1);
+        const am = avg((l) => l.mood),
+          ae = avg((l) => l.energy),
+          asl = avg((l) => l.sleepHours);
+        const r14 = logs.slice(0, 14).reverse();
+        const hes = logs.filter(
+          (l) => l.sleepHours >= 7.5 && l.energy >= 7,
+        ).length;
+        const shi = logs.filter((l) => l.stress >= 7 && l.mood <= 4).length;
+        body.innerHTML = `
+  <div class="spill" data-a="1">
+    <div class="sp"><div class="sn so">${logs.length}</div><div class="sl">Days Logged</div></div>
+    <div class="sp"><div class="sn" style="color:var(--lil)">${am}</div><div class="sl">Avg Mood</div></div>
+    <div class="sp"><div class="sn" style="color:#7C3AED">${ae}</div><div class="sl">Avg Energy</div></div>
+    <div class="sp"><div class="sn" style="color:#6366F1">${asl}h</div><div class="sl">Avg Sleep</div></div>
+  </div>
+  ${
+    r14.length >= 2
+      ? `<div class="card" data-a="2">
+    <div class="semi sm mb3">14-Day Mood Trend</div>
+    <div class="cbars">${r14.map((l) => `<div class="bar" style="height:${Math.round((l.mood / 10) * 100)}%" title="${l.date}: ${l.mood}"></div>`).join("")}</div>
+  </div>`
+      : ""
+  }
+  <div class="card" data-a="3">
+    <div class="semi sm mb3">Patterns</div>
+    <div class="ii">
+      <div class="ii-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 18a5 5 0 00-10 0"/><line x1="12" y1="2" x2="12" y2="9"/></svg></div>
+      <div><div class="semi sm mb2 so">Sleep</div><div class="xs mu" style="line-height:1.6">${+asl >= 7.5 ? `${asl}h average. Well-rested.` : `${asl}h average. More sleep = more gains.`}</div></div>
+    </div>
+    ${
+      hes > 0
+        ? `<div class="ii"><div class="ii-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+      <div><div class="semi sm mb2 so">Sleep → Energy</div><div class="xs mu" style="line-height:1.6">On ${hes} days with 7.5h+ sleep you hit high energy.</div></div></div>`
+        : ""
+    }
+    ${
+      shi > 0
+        ? `<div class="ii"><div class="ii-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg></div>
+      <div><div class="semi sm mb2 so">Stress Impact</div><div class="xs mu" style="line-height:1.6">${shi} high-stress days correlated with low mood.</div></div></div>`
+        : ""
+    }
+    <div class="ii" style="border-bottom:none"><div class="ii-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div>
+      <div><div class="semi sm mb2 ok">Best Days</div><div class="xs mu" style="line-height:1.6">Peak days align with energy above 7. The data doesn't lie.</div></div>
+    </div>
+  </div>
+  ${
+    logs.length >= 3
+      ? `<div class="card" data-a="4"><div class="semi sm mb3">This Week</div>
+    ${logs
+      .slice(0, 7)
+      .map(
+        (l) => `<div class="f ic g3" style="margin-bottom:7px">
+      <div class="xs mu" style="width:34px">${l.date.slice(5)}</div>
+      <div class="pb f1"><div class="pf" style="width:${l.energy * 10}%"></div></div>
+      <div class="xs so semi" style="width:30px;text-align:right">${l.energy}/10</div>
+    </div>`,
+      )
+      .join("")}
+  </div>`
+      : ""
+  }`;
+        aos(body);
+      }
+
+      /* Calendar */
+      let cY,
+        cM,
+        selD = null;
+      const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+      const MONTHS = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ];
+      async function rCal() {
+        const now = new Date();
+        if (!cY) {
+          cY = now.getFullYear();
+          cM = now.getMonth();
+        }
+        const logs = await getLogs(),
+          lm = {};
+        logs.forEach((l) => (lm[l.date] = l));
+        document.getElementById("cal-mo").textContent = `${MONTHS[cM]} ${cY}`;
+        document.getElementById("cal-hd").innerHTML = DAYS.map(
+          (d) => `<div class="chdr">${d}</div>`,
+        ).join("");
+        const fd = new Date(cY, cM, 1).getDay(),
+          dm = new Date(cY, cM + 1, 0).getDate();
+        let cells = Array(fd).fill(null);
+        for (let i = 1; i <= dm; i++) cells.push(i);
+        while (cells.length % 7 !== 0) cells.push(null);
+        const gr = document.getElementById("cal-gr");
+        gr.innerHTML = cells
+          .map((day) => {
+            if (!day) return `<div class="cday emp"></div>`;
+            const ds = `${cY}-${String(cM + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const log = lm[ds],
+              cd = new Date(cY, cM, day);
+            const isTod = cd.toDateString() === now.toDateString(),
+              isFut = cd > now,
+              isSel = ds === selD;
+            let cls = "cday";
+            if (isTod) cls += " tod";
+            if (isFut) cls += " fut";
+            if (isSel) cls += " sel";
+            else if (log) {
+              cls +=
+                log.energy >= 8 ? " hi" : log.energy >= 6 ? " good" : " lo";
+            }
+            return `<div class="${cls}" data-d="${ds}">${day}${log && !isSel ? '<div class="cdot"></div>' : ""}</div>`;
+          })
+          .join("");
+        gr.querySelectorAll(".cday:not(.emp):not(.fut)").forEach((c) =>
+          c.addEventListener("click", () => {
+            selD = c.dataset.d;
+            rCal();
+            showDD(lm[selD], selD);
+          }),
+        );
+        if (selD) showDD(lm[selD], selD);
+      }
+      function showDD(log, ds) {
+        const el = document.getElementById("day-det");
+        el.classList.remove("hid");
+        const d = new Date(ds + "T12:00:00");
+        const dn = [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+        ][d.getDay()];
+        if (!log) {
+          el.innerHTML = `<div class="card"><div class="semi sm mb2">${dn}, ${MONTHS[d.getMonth()]} ${d.getDate()}</div><div class="xs mu">No log for this day.</div></div>`;
+          return;
+        }
+        el.innerHTML = `<div class="card"><div class="semi sm mb3">${dn}, ${MONTHS[d.getMonth()]} ${d.getDate()}</div>
+    <div class="mrow">
+      <div class="ms"><div class="mv so">${log.mood}</div><div class="ml">Mood</div></div>
+      <div class="ms"><div class="mv so">${log.energy}</div><div class="ml">Energy</div></div>
+      <div class="ms"><div class="mv so">${log.stress}</div><div class="ml">Stress</div></div>
+      <div class="ms"><div class="mv so">${log.sleepHours}h</div><div class="ml">Sleep</div></div>
+    </div>
+    ${log.notes ? `<div class="xs mu mt3" style="line-height:1.6;border-top:1px solid var(--rim);padding-top:9px;margin-top:9px">"${log.notes}"</div>` : ""}
+  </div>`;
+      }
+      document.getElementById("cal-p").addEventListener("click", () => {
+        cM--;
+        if (cM < 0) {
+          cM = 11;
+          cY--;
+        }
+        selD = null;
+        document.getElementById("day-det").classList.add("hid");
+        rCal();
+      });
+      document.getElementById("cal-n").addEventListener("click", () => {
+        const n = new Date();
+        if (cY === n.getFullYear() && cM >= n.getMonth()) return;
+        cM++;
+        if (cM > 11) {
+          cM = 0;
+          cY++;
+        }
+        selD = null;
+        document.getElementById("day-det").classList.add("hid");
+        rCal();
+      });
+
+      /* Partner */
+      let pD = { info: null, req: null, logs: [], sync: false },
+        pL = null;
+      async function rPart() {
+        const body = document.getElementById("pt-body");
+        if (!fbOk || !me) {
+          body.innerHTML = `<div class="card tc" style="padding:24px 14px">
+    <div style="width:44px;height:44px;border-radius:12px;background:var(--layer);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;margin:0 auto 11px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="20" height="20"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+    </div>
+    <h3 class="mb2">Sign in for Partner Sync</h3>
+    <p class="sm mu">Connect with your partner and share wellness data.</p>
+  </div>`;
+          return;
+        }
+        if (!pL) {
+          pL = onSnapshot(doc(db, "users", me.uid), async (snap) => {
+            const pu = snap.data()?.partnerUid;
+            if (pu) {
+              const ps = await getDoc(doc(db, "users", pu));
+              if (ps.exists()) {
+                pD.info = { uid: pu, ...ps.data() };
+                pD.sync = true;
+                const ls = await getDocs(
+                  query(
+                    collection(db, "users", pu, "logs"),
+                    orderBy("date", "desc"),
+                    limit(30),
+                  ),
+                );
+                pD.logs = ls.docs.map((d) => ({ date: d.id, ...d.data() }));
+              }
+            }
+            rPUI(body);
+          });
+          onSnapshot(
+            query(
+              collection(db, "users", me.uid, "partnerRequests"),
+              where("status", "==", "pending"),
+            ),
+            (snap) => {
+              const r = snap.docs[0]?.data();
+              pD.req = r ? { id: snap.docs[0].id, ...r } : null;
+              rPUI(body);
+            },
+          );
+        }
+        rPUI(body);
+      }
+      function rPUI(body) {
+        let h = "";
+        if (pD.req) {
+          h += `<div class="card" style="border-color:rgba(124,58,237,.28);background:rgba(124,58,237,.05)">
+    <div class="f ic g3 mb3">
+      <div style="width:34px;height:34px;border-radius:9px;background:rgba(124,58,237,.13);display:flex;align-items:center;justify-content:center">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="16" height="16"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </div>
+      <div><div class="semi sm so">Partner Request</div><div class="xs mu">${pD.req.fromName} (${pD.req.fromEmail})</div></div>
+    </div>
+    <div class="apair" style="gap:7px">
+      <button class="btn btn-p btn-sm" id="acc">Accept</button>
+      <button class="btn btn-o btn-sm" id="dec">Decline</button>
+    </div>
+  </div>`;
+        }
+        if (pD.info) {
+          const ini = (pD.info.displayName || "?")[0].toUpperCase();
+          h += `<div class="card"><div class="f ic g3 mb3">
+      <div class="av">${ini}</div>
+      <div class="f1"><div class="semi sm">${pD.info.displayName || "Partner"}</div>
+      <div class="xs mu">${pD.info.email || ""}</div>
+      <span class="badge bgr" style="margin-top:4px">Connected</span></div>
+    </div><div class="div"></div>
+    <div class="f ic jb"><div><div class="semi sm">Share My Data</div><div class="xs mu">Mood, energy, sleep only</div></div>
+      <label class="tog"><input type="checkbox" id="sync-tog" ${pD.sync ? "checked" : ""}/><span class="tog-sl"></span></label>
+    </div>
+    <button class="btn btn-g btn-d btn-sm mt3" id="disc" style="justify-content:flex-start;gap:7px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>Disconnect
+    </button></div>`;
+          if (pD.sync && pD.logs.length) {
+            h += `<div class="card"><div class="semi sm mb3">Partner's Week</div>
+      ${pD.logs
+        .slice(0, 7)
+        .map(
+          (l) => `<div class="f ic g3" style="margin-bottom:6px">
+        <div class="xs mu" style="width:34px">${l.date.slice(5)}</div>
+        <div style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:${l.mood >= 8 ? "var(--ink)" : l.mood >= 6 ? "var(--vi)" : "var(--mute)"}"></div>
+        <div class="pb f1"><div class="pf" style="width:${l.energy * 10}%"></div></div>
+        <div class="xs mu" style="width:38px">${(l.phase || "").split(" ")[0]}</div>
+      </div>`,
+        )
+        .join("")}</div>`;
+          }
+        } else if (!pD.req) {
+          h += `<div class="card tc" style="padding:20px 14px">
+    <div style="width:44px;height:44px;border-radius:12px;background:var(--layer);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;margin:0 auto 11px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="20" height="20"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+    </div>
+    <h3 class="mb2">Partner Sync</h3><p class="sm mu">Share your journey. Notes stay private.</p>
+  </div>
+  <div class="card"><div class="semi sm mb2">Invite Partner</div>
+    <div class="xs mu mb3">They need a Velour account first.</div>
+    <input type="email" id="pe" class="inp mb3" placeholder="partner@email.com"/>
+    <button class="btn btn-p" id="inv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Send Invite</button>
+    <div id="pmsg" class="mt3 hid"></div>
+  </div>`;
+        }
+        h += `<div class="card f g3"><div style="width:30px;height:30px;border-radius:7px;background:rgba(124,58,237,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+  </div><div><div class="semi sm mb2">Privacy First</div><div class="xs mu" style="line-height:1.5">Notes never shared. Only mood, energy, sleep and phase — always optional.</div></div></div>`;
+        body.innerHTML = h;
+        document.getElementById("acc")?.addEventListener("click", async () => {
+          const b = writeBatch(db);
+          b.set(
+            doc(db, "users", me.uid),
+            { partnerUid: pD.req.fromUid },
+            { merge: true },
+          );
+          b.set(
+            doc(db, "users", pD.req.fromUid),
+            { partnerUid: me.uid },
+            { merge: true },
+          );
+          b.update(doc(db, "users", me.uid, "partnerRequests", pD.req.id), {
+            status: "accepted",
+          });
+          await b.commit();
+          pD.req = null;
+          rPUI(body);
+        });
+        document.getElementById("dec")?.addEventListener("click", () => {
+          pD.req = null;
+          rPUI(body);
+        });
+        document.getElementById("sync-tog")?.addEventListener("change", (e) => {
+          pD.sync = e.target.checked;
+          rPUI(body);
+        });
+        document.getElementById("disc")?.addEventListener("click", async () => {
+          if (!confirm("Disconnect?")) return;
+          const b = writeBatch(db);
+          b.update(doc(db, "users", me.uid), { partnerUid: null });
+          b.update(doc(db, "users", pD.info.uid), { partnerUid: null });
+          await b.commit();
+          pD = { info: null, req: null, logs: [], sync: false };
+          pL = null;
+          rPUI(body);
+        });
+        document.getElementById("inv")?.addEventListener("click", async () => {
+          const em = document.getElementById("pe").value.trim();
+          if (!em) return;
+          const msg = document.getElementById("pmsg");
+          try {
+            const s = await getDocs(
+              query(collection(db, "users"), where("email", "==", em)),
+            );
+            if (s.empty) {
+              msg.className = "mt3 ebox";
+              msg.textContent = "No account found for that email.";
+              msg.classList.remove("hid");
+              return;
+            }
+            const pu = s.docs[0].id;
+            if (pu === me.uid) {
+              msg.className = "mt3 ebox";
+              msg.textContent = "That's you.";
+              msg.classList.remove("hid");
+              return;
+            }
+            await setDoc(doc(db, "users", pu, "partnerRequests", me.uid), {
+              fromUid: me.uid,
+              fromName: me.displayName || "A Velour User",
+              fromEmail: me.email || "",
+              status: "pending",
+              timestamp: Date.now(),
+            });
+            msg.className = "mt3 obox";
+            msg.textContent = "Invite sent!";
+            msg.classList.remove("hid");
+            document.getElementById("pe").value = "";
+          } catch (e) {
+            const msg = document.getElementById("pmsg");
+            msg.className = "mt3 ebox";
+            msg.textContent = e.message;
+            msg.classList.remove("hid");
+          }
+        });
+      }
+
+      /* AI Chat */
+      let chatH = [];
+      const SYS = `You are Velour's AI wellness coach — helpful, witty, concise. Give real actionable advice on mood, energy, stress, sleep, men's health. Be encouraging but honest. Use light humor. Never diagnose. 2-3 sentences max unless user wants detail.`;
+      async function sendM(txt) {
+        if (!txt.trim()) return;
+        document.getElementById("chat-sugg")?.remove();
+        chatH.push({ role: "user", txt, u: true });
+        addB(txt, true);
+        const btn = document.getElementById("chat-send");
+        btn.disabled = true;
+        document.getElementById("chat-in").value = "";
+        document.getElementById("chat-in").style.height = "auto";
+        const tid = "t" + Date.now();
+        document
+          .getElementById("chat-msgs")
+          .insertAdjacentHTML(
+            "beforeend",
+            `<div class="cmsg ai" id="${tid}"><div class="cav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><div class="cbub"><div class="tdots"><span></span><span></span><span></span></div></div></div>`,
+          );
+        scrollC();
+        try {
+          const contents = chatH
+            .slice(-10)
+            .map((m) => ({
+              role: m.u ? "user" : "model",
+              parts: [{ text: m.txt }],
+            }));
+          const res = await fetch(GU, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: SYS }] },
+              contents,
+              generationConfig: { maxOutputTokens: 380, temperature: 0.8 },
+            }),
+          });
+          const json = await res.json();
+          const reply =
+            json.candidates?.[0]?.content?.parts?.[0]?.text ||
+            "Connection issue. Try again.";
+          document.getElementById(tid)?.remove();
+          chatH.push({ role: "model", txt: reply, u: false });
+          addB(reply, false);
+        } catch (e) {
+          document.getElementById(tid)?.remove();
+          addB(
+            GK.startsWith("YOUR_")
+              ? "Add your Gemini API key in index.html. Free at aistudio.google.com"
+              : "Connection error.",
+            false,
+          );
+        }
+        btn.disabled = false;
+        scrollC();
+      }
+      function addB(txt, u) {
+        const d = document.createElement("div");
+        d.className = "cmsg " + (u ? "u" : "ai");
+        const esc = (s) =>
+          s
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\n/g, "<br>");
+        d.innerHTML = u
+          ? `<div class="cbub">${esc(txt)}</div>`
+          : `<div class="cav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><div class="cbub">${esc(txt)}</div>`;
+        document.getElementById("chat-msgs").appendChild(d);
+      }
+      const scrollC = () =>
+        (document.getElementById("chat-msgs").scrollTop = 9999);
+
+      const cp = document.getElementById("chat-panel");
+      document.getElementById("chat-fab").addEventListener("click", () => {
+        cp.classList.toggle("on");
+        document.getElementById("cu").style.display = "none";
+      });
+      document
+        .getElementById("chat-close")
+        .addEventListener("click", () => cp.classList.remove("on"));
+      const ci = document.getElementById("chat-in");
+      ci.addEventListener("input", (e) => {
+        document.getElementById("chat-send").disabled = !e.target.value.trim();
+        e.target.style.height = "auto";
+        e.target.style.height = Math.min(e.target.scrollHeight, 72) + "px";
+      });
+      ci.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendM(e.target.value);
+        }
+      });
+      document
+        .getElementById("chat-send")
+        .addEventListener("click", () => sendM(ci.value));
+      document
+        .querySelectorAll(".sug[data-q]")
+        .forEach((b) => b.addEventListener("click", () => sendM(b.dataset.q)));
+
+      /* Nav events */
+      document.querySelectorAll(".ni[data-nav]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const t = b.dataset.nav;
+          if (t !== cur) {
+            hist.push(t);
+            go(t, false);
+          }
+        }),
+      );
+      document
+        .querySelectorAll("[data-back]")
+        .forEach((b) => b.addEventListener("click", goBack));
+
+      /* Boot */
+      async function boot() {
+        spawnBubbles();
+        idb = await openDB();
+        rOb();
+        buildSx();
+        uRanges();
+        if ("serviceWorker" in navigator)
+          navigator.serviceWorker.register("sw.js").catch(() => {});
+        if (!fbOk) {
+          const ob = await getPref("onboarded");
+          if (ob) {
+            go("dashboard");
+            hist = ["dashboard"];
+          }
+        }
+        aos(document.getElementById("screen-login"));
+      }
+      boot();
+    </script>
+  </body>
+</html>

@@ -1,18 +1,41 @@
 {
   "name": "Velour – Men's Wellness",
   "short_name": "Velour",
-  "description": "Your premium men's wellness companion",
+  "description": "The world's first male cycle tracker. Scientifically satirical, genuinely useful.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0d0118",
-  "theme_color": "#6A0DAD",
-  "orientation": "portrait",
+  "background_color": "#09010F",
+  "theme_color": "#5B0EA6",
+  "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='%236A0DAD'/><text y='130' x='50' font-size='110'>🌸</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='%235B0EA6'/><path d='M96 32L48 60l48 28 48-28-48-28zM48 136l48 24 48-24M48 100l48 24 48-24' fill='none' stroke='white' stroke-width='10' stroke-linejoin='round' stroke-linecap='round'/></svg>",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%235B0EA6'/><path d='M256 80L128 152l128 72 128-72-128-72zM128 352l128 64 128-64M128 264l128 64 128-64' fill='none' stroke='white' stroke-width='26' stroke-linejoin='round' stroke-linecap='round'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["health", "fitness", "lifestyle"]
+  "shortcuts": [
+    {
+      "name": "Log Today",
+      "short_name": "Log",
+      "description": "Open daily tracker",
+      "url": "/?screen=tracker",
+      "icons": [{"src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect width='96' height='96' rx='20' fill='%235B0EA6'/><path d='M55 20H32a8 8 0 00-8 8v40a8 8 0 008 8h32a8 8 0 008-8V37z' fill='none' stroke='white' stroke-width='4'/><path d='M55 20v17h17M40 52l7 7 9-14' fill='none' stroke='white' stroke-width='4' stroke-linecap='round'/></svg>", "sizes": "96x96"}]
+    },
+    {
+      "name": "Insights",
+      "short_name": "Insights",
+      "description": "View your wellness insights",
+      "url": "/?screen=insights",
+      "icons": [{"src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect width='96' height='96' rx='20' fill='%237C3AED'/><polyline points='76,40 60,40 52,68 36,12 28,40 20,40' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/></svg>", "sizes": "96x96"}]
+    }
+  ],
+  "categories": ["health", "fitness", "lifestyle", "medical"]
 }

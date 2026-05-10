@@ -1,34 +1,58 @@
-const CACHE_NAME = 'velour-v1';
-const STATIC_ASSETS = ['/', '/index.html'];
-
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
-  );
+const CACHE = "velour-v4";
+const ASSETS = ["/", "/index.html"];
+self.addEventListener("install", (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
   self.skipWaiting();
 });
-
-self.addEventListener('activate', (e) => {
+self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    caches
+      .keys()
+      .then((ks) =>
+        Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))),
+      ),
   );
   self.clients.claim();
 });
-
-self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+self.addEventListener("fetch", (e) => {
+  if (e.request.method !== "GET") return;
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      const network = fetch(e.request).then(res => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+    caches.match(e.request).then((cached) => {
+      const net = fetch(e.request).then((r) => {
+        if (r.ok) {
+          const c = r.clone();
+          caches.open(CACHE).then((cc) => cc.put(e.request, c));
         }
-        return res;
+        return r;
       });
-      return cached || network;
-    })
+      return cached || net;
+    }),
   );
+});
+
+// Push notifications
+self.addEventListener("push", (e) => {
+  const data = e.data?.json() || {};
+  e.waitUntil(
+    self.registration.showNotification(data.title || "Velour", {
+      body: data.body || "Time to check in.",
+      icon: "/icon-192.png",
+      badge: "/icon-72.png",
+      tag: data.tag || "velour-notif",
+      data: data,
+      actions: [
+        { action: "log", title: "Log Now" },
+        { action: "dismiss", title: "Later" },
+      ],
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  if (e.action === "log") {
+    e.waitUntil(clients.openWindow("/?screen=tracker"));
+  } else {
+    e.waitUntil(clients.openWindow("/"));
+  }
 });

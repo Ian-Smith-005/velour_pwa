@@ -19,22 +19,28 @@
         getDocs,
         onSnapshot,
         writeBatch,
+        updateDoc,
+        deleteField,
+        serverTimestamp,
+        Timestamp,
       } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-      /* CONFIG — replace these */
+      /* ─── CONFIG ─────────────────────────────────── */
+      // Replace these with your Firebase config + Gemini key
       const FB = {
-        apiKey: "AIzaSyAB0HEagjsCbj9hKzvoDhCd4IjRt8ShHys",
-        authDomain: "vecour-e15e8.firebaseapp.com",
-        projectId: "vecour-e15e8",
-        storageBucket: "vecour-e15e8.firebasestorage.app",
-        messagingSenderId: "841316633130",
-        appId: "1:841316633130:web:487a86e34c7c534998d153",
-        measurementId: "G-YP9F062HXZ",
+        apiKey: "AIzaSyAKA1dM-WnQ56L3BEEycpuJ5oHVAdYit_U",
+        authDomain: "velour-app-22f69.firebaseapp.com",
+        databaseURL: "https://velour-app-22f69-default-rtdb.firebaseio.com",
+        projectId: "velour-app-22f69",
+        storageBucket: "velour-app-22f69.firebasestorage.app",
+        messagingSenderId: "394876548225",
+        appId: "1:394876548225:web:fc0fc98e951f87215c4980",
       };
+      const VAPID_KEY = "BDBnahouOzDo_PV-dJ30TOeSv4YGysdUic8QlnRaLtn2c6FgKN-cAMjiOAo3YxlZCyZujh2at_Ljskz5e5e56u0"; // from Firebase Console > Cloud Messaging
       const GK = "AIzaSyDvcK_Tw4L9omTCEgi_hYuLtqY-kIMGcnM";
       const GU = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GK}`;
 
-      /* Firebase */
+      /* ─── FIREBASE INIT ──────────────────────────── */
       let auth,
         db,
         me = null,
@@ -47,20 +53,25 @@
           fbOk = true;
         }
       } catch (e) {
-        console.warn("FB:", e.message);
+        console.warn("Firebase not configured:", e.message);
       }
 
-      /* IDB */
+      /* ─── INDEXEDDB (local fallback) ─────────────── */
       let idb = null;
       const openDB = () =>
         new Promise((res, rej) => {
-          const r = indexedDB.open("velour2", 1);
+          const r = indexedDB.open("velour_v4", 1);
           r.onupgradeneeded = (e) => {
             const d = e.target.result;
             if (!d.objectStoreNames.contains("logs"))
               d.createObjectStore("logs", { keyPath: "date" });
             if (!d.objectStoreNames.contains("prefs"))
               d.createObjectStore("prefs", { keyPath: "key" });
+            if (!d.objectStoreNames.contains("notifs"))
+              d.createObjectStore("notifs", {
+                keyPath: "id",
+                autoIncrement: true,
+              });
           };
           r.onsuccess = (e) => res(e.target.result);
           r.onerror = (e) => rej(e.target.error);
@@ -78,85 +89,175 @@
         iGet("prefs", k).then((r) => (r ? r.value : d));
       const setPref = (k, v) => iPut("prefs", { key: k, value: v });
 
-      /* Data */
+      /* ─── DATA LAYER ─────────────────────────────── */
+      // Primary DB: Firestore (if configured). Fallback: IndexedDB only.
       const tod = () => new Date().toISOString().slice(0, 10);
+
       async function saveLog(log) {
         log.date = log.date || tod();
         log.ts = Date.now();
-        await iPut("logs", log);
+        await iPut("logs", log); // always save locally first
         if (fbOk && me) {
           try {
-            const { notes: _, ...p } = log;
-            await setDoc(doc(db, "users", me.uid, "logs", log.date), p, {
-              merge: true,
-            });
-          } catch (e) {}
+            const { notes: _, ...pub } = log; // never sync private notes
+            await setDoc(
+              doc(db, "users", me.uid, "logs", log.date),
+              { ...pub, updatedAt: serverTimestamp() },
+              { merge: true },
+            );
+          } catch (e) {
+            console.warn("Firestore save failed:", e.message);
+          }
         }
       }
-      const getLog = () => iGet("logs", tod());
-      const getLogs = () =>
-        iAll("logs").then((a) =>
-          a.sort((a, b) => b.date.localeCompare(a.date)),
-        );
+      async function getLog() {
+        // Try Firestore first if online, else local
+        if (fbOk && me) {
+          try {
+            const snap = await getDoc(doc(db, "users", me.uid, "logs", tod()));
+            if (snap.exists()) {
+              const d = snap.data();
+              await iPut("logs", { ...d, date: tod() });
+              return d;
+            }
+          } catch (e) {}
+        }
+        return iGet("logs", tod());
+      }
+      async function getLogs() {
+        if (fbOk && me) {
+          try {
+            const snap = await getDocs(
+              query(
+                collection(db, "users", me.uid, "logs"),
+                orderBy("date", "desc"),
+                limit(90),
+              ),
+            );
+            const logs = snap.docs.map((d) => ({ date: d.id, ...d.data() }));
+            for (const l of logs) await iPut("logs", l); // cache locally
+            return logs;
+          } catch (e) {}
+        }
+        const all = await iAll("logs");
+        return all.sort((a, b) => b.date.localeCompare(a.date));
+      }
 
-      /* Phases */
-      const PH = [
-        {
-          n: "Peak Performance",
-          s: "Peak",
-          c: "#5B0EA6",
-          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
-          d: "Firing on all cylinders. Go conquer something.",
-          t: [
-            "Schedule your hardest tasks now",
-            "Great day for social commitments",
-          ],
-        },
-        {
-          n: "High Energy",
-          s: "High",
-          c: "#7C3AED",
-          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
-          d: "Energy is up. Your future self thanks you.",
-          t: [
-            "Tackle the project you've been avoiding",
-            "Good day for creative work",
-          ],
-        },
-        {
-          n: "Balanced",
-          s: "Good",
-          c: "#6366F1",
-          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg>`,
-          d: "Steady as she goes. Reliable and consistent.",
-          t: ["Routine work flows smoothly", "Good day for planning"],
-        },
-        {
-          n: "Recovery Mode",
-          s: "Rest",
-          c: "#6B7280",
-          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M17 18a5 5 0 00-10 0"/><line x1="12" y1="2" x2="12" y2="9"/></svg>`,
-          d: "Your body sent a memo. Respect it.",
-          t: ["Prioritize sleep tonight", "Light movement only"],
-        },
-        {
-          n: "Recharge",
-          s: "Low",
-          c: "#4F46E5",
-          ic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="13" x2="23" y2="11"/></svg>`,
-          d: "Even phones need charging. Take notes.",
-          t: ["Cancel non-essential meetings", "Focus on nutrition today"],
-        },
-      ];
-      const phFrom = (l) => {
-        if (!l) return PH[2];
-        if (l.energy >= 8) return PH[0];
-        if (l.energy >= 6) return PH[1];
-        if (l.energy >= 4) return PH[2];
-        if (l.energy >= 2) return PH[3];
-        return PH[4];
-      };
+      /* ─── SPERMATOGENESIS CYCLE (74 days) ───────────
+   We mimic a menstrual cycle but for the "male cycle".
+   The real spermatogenesis cycle is ~74 days, so we map
+   wellness phases across that timeline — with tongue-in-cheek
+   naming that mirrors the original app's concept.
+   Phase names mirror follicular/ovulation/luteal energy
+   patterns because... why not? It's funnier that way.
+────────────────────────────────────────────────── */
+      const CYCLE_DAYS = 74;
 
+      // Map a day of the cycle (1-74) to a phase
+      function cyclePhase(day) {
+        if (day <= 10)
+          return {
+            id: "proliferative",
+            n: "Proliferative Phase",
+            s: "Genesis",
+            desc: "New cycle, new sperm. Factory floor at full production. Testosterone rising.",
+            tips: [
+              "Great week for starting new projects",
+              "High testosterone = high confidence",
+            ],
+            c: "#5B0EA6",
+            rec: "Build habits now that future-you will be grateful for.",
+          };
+        if (day <= 18)
+          return {
+            id: "peak",
+            n: "Peak Production",
+            s: "Peak",
+            desc: "Maximum output. All systems at 100%. This is your power window.",
+            tips: [
+              "Best week for hard workouts and high performance",
+              "Social energy is peaked",
+            ],
+            c: "#7C3AED",
+            rec: "Schedule your most challenging tasks this week.",
+          };
+        if (day <= 30)
+          return {
+            id: "maturation",
+            n: "Maturation Phase",
+            s: "Refine",
+            desc: "Quality control in progress. Energy steady, focus sharp.",
+            tips: [
+              "Good for detail-oriented work",
+              "Sustained energy — use it for deep work",
+            ],
+            c: "#6366F1",
+            rec: "Deep work, learning, and skill-building are optimal now.",
+          };
+        if (day <= 50)
+          return {
+            id: "transport",
+            n: "Transport Phase",
+            s: "Flow",
+            desc: "Systems are flowing. Not peak, but reliable. Like a well-oiled machine.",
+            tips: [
+              "Collaborative work shines here",
+              "Good for communication and networking",
+            ],
+            c: "#4F46E5",
+            rec: "Team projects and social commitments work well now.",
+          };
+        if (day <= 62)
+          return {
+            id: "decline",
+            n: "Recharge Phase",
+            s: "Rest",
+            desc: "Energy dipping. Your body is reallocating resources. Rest is productive.",
+            tips: [
+              "Prioritize sleep and recovery",
+              "Light exercise only — no ego lifting",
+            ],
+            c: "#6B7280",
+            rec: "Prioritize nutrition, sleep 8h+, and stress management.",
+          };
+        return {
+          id: "renewal",
+          n: "Renewal Phase",
+          s: "Reset",
+          desc: "Cycle end. New beginnings loading... Factory reset incoming.",
+          tips: [
+            "Reflect on the cycle — what worked?",
+            "Prepare for the next Genesis phase",
+          ],
+          c: "#374151",
+          rec: "Journal, reflect, and prepare for the next cycle peak.",
+        };
+      }
+
+      // Get current cycle day based on user-set start date
+      async function getCycleDay() {
+        const startStr = await getPref("cycle_start");
+        if (!startStr) return null;
+        const start = new Date(startStr);
+        const now = new Date();
+        const diff = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+        return (((diff % CYCLE_DAYS) + CYCLE_DAYS) % CYCLE_DAYS) + 1;
+      }
+
+      // Phase from log (energy-based) or cycle-based
+      async function phaseFrom(log) {
+        const day = await getCycleDay();
+        if (day) return cyclePhase(day);
+        // Fallback to energy-based if no cycle set
+        if (!log) return cyclePhase(37); // transport/flow phase
+        if (log.energy >= 8) return cyclePhase(15);
+        if (log.energy >= 6) return cyclePhase(25);
+        if (log.energy >= 4) return cyclePhase(37);
+        if (log.energy >= 2) return cyclePhase(55);
+        return cyclePhase(68);
+      }
+
+      /* ─── SYMPTOMS ───────────────────────────────── */
       const SX = [
         "Fatigue",
         "Irritability",
@@ -170,47 +271,53 @@
         "Gym ready",
         "Headache",
         "Low mood",
+        "Restless",
+        "Calm",
       ];
+
+      /* ─── MOOD QUOTES ────────────────────────────── */
       const MQ = [
-        "Even rocks have bad days. Valid.",
+        "Even rocks have bad days.",
         "Gravity feels personal today.",
         "Not great, not terrible.",
         "Could be worse.",
         "Solidly mid.",
         "Things are going.",
         "Pretty decent.",
-        "Good day. Enjoy it.",
-        "Excellent. Hydrated?",
-        "Absolute peak energy.",
+        "Good day — enjoy it.",
+        "Excellent. Probably hydrated.",
+        "Absolute peak energy. Legendary.",
       ];
+
+      /* ─── ONBOARDING DATA ────────────────────────── */
       const OB = [
         {
           ic: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="30" height="30"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`,
           t: "Welcome to Velour",
-          s: "Your premium wellness companion.",
-          f: "You have moods. They have patterns. Time to learn them.",
+          s: "The first male cycle tracker. Sort of.",
+          f: "Did you know men have an ~74-day spermatogenesis cycle? We track that now. You're welcome.",
         },
         {
           ic: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="30" height="30"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
-          t: "Track Your Patterns",
-          s: "Log mood, energy, stress and sleep daily.",
-          f: "Men have hormonal cycles too — less discussed, completely real.",
+          t: "Track Like a King",
+          s: "Log mood, energy, stress and sleep every day.",
+          f: "Testosterone fluctuates daily, weekly, and seasonally. Your data will actually show this.",
         },
         {
           ic: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="30" height="30"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,
           t: "AI Wellness Coach",
-          s: "Ask anything wellness-related.",
-          f: "70% science, 30% wit, 100% on your side.",
+          s: "Ask anything. Our AI will not judge you.",
+          f: "Science says writing about your feelings helps. Our AI says the same thing, but funnier.",
         },
         {
           ic: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="30" height="30"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`,
-          t: "Your Data, Your Rules",
-          s: "Local-first. Privacy by design.",
-          f: "Your data stays on your device. Not for sale.",
+          t: "Your Data in Firestore",
+          s: "Real-time sync across all your devices.",
+          f: "Data lives in your Firebase project. Not ours. We just wrote the code.",
         },
       ];
 
-      /* Ambient bubbles */
+      /* ─── AMBIENT BUBBLES ────────────────────────── */
       function spawnBubbles() {
         const c = document.getElementById("bb");
         for (let i = 0; i < 11; i++) {
@@ -222,7 +329,7 @@
         }
       }
 
-      /* AOS */
+      /* ─── AOS ────────────────────────────────────── */
       function aos(el = document) {
         requestAnimationFrame(() => {
           (el.querySelectorAll ? el : document)
@@ -236,7 +343,7 @@
         });
       }
 
-      /* Nav */
+      /* ─── NAVIGATION ─────────────────────────────── */
       let cur = "login",
         hist = [];
       function go(id, push = true) {
@@ -285,7 +392,7 @@
         } else go("dashboard", false);
       };
 
-      /* Onboarding */
+      /* ─── ONBOARDING ─────────────────────────────── */
       let obP = 0;
       function rOb() {
         const d = OB[obP];
@@ -318,9 +425,24 @@
         hist = ["dashboard"];
       });
 
-      /* Auth */
+      /* ─── AUTH ───────────────────────────────────── */
       async function afterLogin(user) {
         me = user;
+        if (user && fbOk) {
+          // Sync any cached local logs to Firestore
+          try {
+            const local = await iAll("logs");
+            for (const l of local.slice(0, 7)) {
+              const { notes: _, ...pub } = l;
+              await setDoc(
+                doc(db, "users", me.uid, "logs", l.date),
+                { ...pub, updatedAt: serverTimestamp() },
+                { merge: true },
+              );
+            }
+          } catch (e) {}
+          listenForPartnerRequests();
+        }
         const ob = await getPref("onboarded");
         if (!ob) go("onboarding");
         else {
@@ -328,13 +450,15 @@
           hist = ["dashboard"];
         }
       }
+
       document
         .getElementById("btn-google")
         .addEventListener("click", async () => {
           if (!fbOk) {
-            const e = document.getElementById("login-err");
-            e.textContent = "Firebase not configured. Use guest mode.";
-            e.classList.remove("hid");
+            const el = document.getElementById("login-err");
+            el.textContent =
+              "Firebase not configured — see README.md for setup.";
+            el.classList.remove("hid");
             return;
           }
           try {
@@ -345,7 +469,7 @@
                 displayName: r.user.displayName || "",
                 email: r.user.email || "",
                 photoUrl: r.user.photoURL || "",
-                lastSeen: Date.now(),
+                lastSeen: serverTimestamp(),
               },
               { merge: true },
             );
@@ -374,11 +498,11 @@
           go("login", false);
         });
 
-      /* Dashboard */
+      /* ─── DASHBOARD RENDER ───────────────────────── */
       const greet = () => {
         const h = new Date().getHours();
         return h < 5
-          ? "Night shift"
+          ? "Night shift, champion"
           : h < 12
             ? "Good morning"
             : h < 17
@@ -387,33 +511,78 @@
                 ? "Good evening"
                 : "Burning midnight oil";
       };
+
       async function rDash() {
         document.getElementById("d-greet").textContent = greet();
         const name = me?.displayName?.split(" ")[0];
         document.getElementById("d-name").textContent = name
           ? "Welcome back, " + name
           : "";
-        const log = await getLog(),
-          ph = phFrom(log);
-        const pc = document.getElementById("pcard");
-        pc.style.background = `linear-gradient(135deg,${ph.c}20,${ph.c}09)`;
-        pc.style.borderColor = `${ph.c}2e`;
-        pc.style.border = "1px solid";
-        document.getElementById("p-icon").innerHTML = ph.ic;
-        document.getElementById("p-icon").style.cssText =
-          `width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${ph.c}1e;color:${ph.c}`;
-        document.getElementById("p-name").textContent = ph.n;
-        document.getElementById("p-name").style.color = ph.c;
-        document.getElementById("p-pill").textContent = ph.s;
-        document.getElementById("p-pill").style.cssText =
-          `display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:.67rem;font-weight:600;border:1px solid;color:${ph.c};border-color:${ph.c}44;background:${ph.c}14`;
-        document.getElementById("p-desc").textContent = ph.d;
-        document.getElementById("p-tips").innerHTML = ph.t
-          .map(
-            (t) =>
-              `<div class="f ic g2 sm mu" style="margin-bottom:3px"><div style="width:3px;height:3px;border-radius:50%;background:${ph.c};flex-shrink:0"></div>${t}</div>`,
-          )
-          .join("");
+        const log = await getLog();
+        const ph = await phaseFrom(log);
+        const day = await getCycleDay();
+
+        // Phase card with cycle ring
+        const ring = day
+          ? `
+    <div class="cycle-ring" style="margin-bottom:14px">
+      <svg viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(124,58,237,.15)" stroke-width="8"/>
+        <circle cx="50" cy="50" r="42" fill="none" stroke="${ph.c}" stroke-width="8"
+          stroke-dasharray="${2 * Math.PI * 42}" stroke-dashoffset="${2 * Math.PI * 42 * (1 - day / CYCLE_DAYS)}"
+          stroke-linecap="round" transform="rotate(-90 50 50)"
+          style="transition:stroke-dashoffset .8s cubic-bezier(.34,1.56,.64,1)"/>
+      </svg>
+      <div class="cycle-day-badge">
+        <div class="cycle-day-num" style="color:${ph.c}">${day}</div>
+        <div class="cycle-day-lbl">of ${CYCLE_DAYS} days</div>
+      </div>
+    </div>`
+          : "";
+
+        document.getElementById("pcard").innerHTML = `
+    ${ring}
+    <div class="f ic g3 mb3">
+      <div style="width:36px;height:36px;border-radius:9px;background:${ph.c}22;color:${ph.c};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <div class="f1">
+        <div class="xs mu">${day ? `Day ${day} — ` : ""}Spermatogenesis Cycle</div>
+        <div class="fd bold" style="font-size:.9rem;color:${ph.c}">${ph.n}</div>
+      </div>
+      <div class="phase-pill" style="color:${ph.c};border-color:${ph.c}44;background:${ph.c}16">${ph.s}</div>
+    </div>
+    <p class="sm mu mb3" style="line-height:1.6">${ph.desc}</p>
+    ${ph.tips.map((t) => `<div class="f ic g2 sm mu" style="margin-bottom:3px"><div style="width:3px;height:3px;border-radius:50%;background:${ph.c};flex-shrink:0"></div>${t}</div>`).join("")}
+    ${
+      !day
+        ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--rim)"><p class="xs mu mb2">Set your cycle start date to track your ${CYCLE_DAYS}-day cycle:</p>
+    <div class="f g2"><input type="date" id="cycle-date-inp" class="inp f1" style="height:34px;font-size:.77rem" value="${new Date().toISOString().slice(0, 10)}"/>
+    <button class="btn btn-p btn-sm" id="set-cycle-btn" style="width:auto;padding:0 12px">Set</button></div></div>`
+        : ""
+    }
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--rim)">
+      <div class="xs mu mb2">Rec: ${ph.rec}</div>
+    </div>`;
+
+        document.getElementById("pcard").style.cssText =
+          `border-radius:var(--r);padding:13px 15px;margin:0 13px 13px;position:relative;z-index:2;box-shadow:0 6px 22px rgba(0,0,0,.32);background:linear-gradient(135deg,${ph.c}20,${ph.c}09);border:1px solid ${ph.c}2e`;
+
+        document
+          .getElementById("set-cycle-btn")
+          ?.addEventListener("click", async () => {
+            const v = document.getElementById("cycle-date-inp")?.value;
+            if (v) {
+              await setPref("cycle_start", v);
+              if (fbOk && me) {
+                try {
+                  await updateDoc(doc(db, "users", me.uid), { cycleStart: v });
+                } catch (e) {}
+              }
+              rDash();
+            }
+          });
+
         if (log) {
           document.getElementById("vsec").classList.remove("hid");
           document.getElementById("v-mood").textContent = log.mood + "/10";
@@ -428,7 +597,7 @@
         .getElementById("d-ins")
         .addEventListener("click", () => go("insights"));
 
-      /* Tracker */
+      /* ─── TRACKER ────────────────────────────────── */
       let selSx = new Set();
       function resetT() {
         selSx.clear();
@@ -458,7 +627,11 @@
         const sl = +document.getElementById("r-sl").value;
         document.getElementById("slv").textContent = sl.toFixed(1);
         document.getElementById("slmsg").textContent =
-          sl < 6 ? "Under 6h. Risky." : sl >= 8 ? "8h+ Optimal." : "Decent.";
+          sl < 6
+            ? "Under 6h. Factory output may suffer."
+            : sl >= 8
+              ? "8h+. Optimal production conditions."
+              : "Decent. Could be better.";
         document.getElementById("lv").textContent =
           document.getElementById("r-l").value;
       }
@@ -490,11 +663,13 @@
         .addEventListener("click", async () => {
           const btn = document.getElementById("save-btn");
           btn.disabled = true;
-          btn.innerHTML = '<div class="spin"></div> Saving...';
-          await saveLog({
+          btn.innerHTML = '<div class="spinner"></div> Saving...';
+          const energy = +document.getElementById("r-e").value;
+          const ph = await phaseFrom({ energy });
+          const log = {
             date: tod(),
             mood: +document.getElementById("r-m").value,
-            energy: +document.getElementById("r-e").value,
+            energy,
             stress: +document.getElementById("r-s").value,
             focus: +document.getElementById("r-f").value,
             sleepHours: +document.getElementById("r-sl").value,
@@ -503,7 +678,15 @@
               : null,
             symptoms: JSON.stringify([...selSx]),
             notes: document.getElementById("nt-inp").value,
-            phase: phFrom({ energy: +document.getElementById("r-e").value }).n,
+            phase: ph.n,
+            cyclePhase: ph.id,
+          };
+          await saveLog(log);
+          addNotif({
+            type: "log",
+            title: "Log saved",
+            body: `Day logged — ${ph.n} phase. Keep it up.`,
+            icon: "check",
           });
           btn.disabled = false;
           btn.innerHTML =
@@ -511,7 +694,7 @@
           goBack();
         });
 
-      /* Insights */
+      /* ─── INSIGHTS ───────────────────────────────── */
       async function rIns() {
         const body = document.getElementById("ins-body"),
           logs = await getLogs();
@@ -520,7 +703,7 @@
       <div style="width:48px;height:48px;border-radius:13px;background:var(--layer);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
         <svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="20" height="20"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       </div>
-      <h2 class="mb2">No data yet</h2><p class="mu sm">Start logging daily — insights appear here.</p></div>`;
+      <h2 class="mb2">No data yet</h2><p class="mu sm">Start logging — insights appear after a few days.</p></div>`;
           return;
         }
         const avg = (fn) =>
@@ -533,6 +716,15 @@
           (l) => l.sleepHours >= 7.5 && l.energy >= 7,
         ).length;
         const shi = logs.filter((l) => l.stress >= 7 && l.mood <= 4).length;
+        // Phase distribution
+        const phases = {};
+        logs.forEach((l) => {
+          if (l.phase) {
+            phases[l.phase] = (phases[l.phase] || 0) + 1;
+          }
+        });
+        const topPhase = Object.entries(phases).sort((a, b) => b[1] - a[1])[0];
+
         body.innerHTML = `
   <div class="spill" data-a="1">
     <div class="sp"><div class="sn so">${logs.length}</div><div class="sl">Days Logged</div></div>
@@ -542,33 +734,34 @@
   </div>
   ${
     r14.length >= 2
-      ? `<div class="card" data-a="2">
-    <div class="semi sm mb3">14-Day Mood Trend</div>
+      ? `<div class="card" data-a="2"><div class="semi sm mb3">14-Day Mood Trend</div>
     <div class="cbars">${r14.map((l) => `<div class="bar" style="height:${Math.round((l.mood / 10) * 100)}%" title="${l.date}: ${l.mood}"></div>`).join("")}</div>
   </div>`
       : ""
   }
-  <div class="card" data-a="3">
-    <div class="semi sm mb3">Patterns</div>
-    <div class="ii">
-      <div class="ii-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 18a5 5 0 00-10 0"/><line x1="12" y1="2" x2="12" y2="9"/></svg></div>
-      <div><div class="semi sm mb2 so">Sleep</div><div class="xs mu" style="line-height:1.6">${+asl >= 7.5 ? `${asl}h average. Well-rested.` : `${asl}h average. More sleep = more gains.`}</div></div>
-    </div>
+  <div class="card" data-a="3"><div class="semi sm mb3">Cycle Insights</div>
+    ${
+      topPhase
+        ? `<div class="ii"><div class="ii-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+    <div><div class="semi sm mb2 so">Dominant Phase</div><div class="xs mu" style="line-height:1.6">You spend most time in <strong>${topPhase[0]}</strong> (${topPhase[1]} days logged). Plan accordingly.</div></div></div>`
+        : ""
+    }
+    <div class="ii"><div class="ii-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 18a5 5 0 00-10 0"/><line x1="12" y1="2" x2="12" y2="9"/></svg></div>
+    <div><div class="semi sm mb2 so">Sleep</div><div class="xs mu" style="line-height:1.6">${+asl >= 7.5 ? `${asl}h average. Factory running at capacity.` : `${asl}h average. Sperm don't thrive on poor sleep. Neither do you.`}</div></div></div>
     ${
       hes > 0
         ? `<div class="ii"><div class="ii-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
-      <div><div class="semi sm mb2 so">Sleep → Energy</div><div class="xs mu" style="line-height:1.6">On ${hes} days with 7.5h+ sleep you hit high energy.</div></div></div>`
+    <div><div class="semi sm mb2 so">Sleep → Energy</div><div class="xs mu" style="line-height:1.6">On ${hes} days with 7.5h+ sleep, you hit high energy. The correlation is real.</div></div></div>`
         : ""
     }
     ${
       shi > 0
         ? `<div class="ii"><div class="ii-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg></div>
-      <div><div class="semi sm mb2 so">Stress Impact</div><div class="xs mu" style="line-height:1.6">${shi} high-stress days correlated with low mood.</div></div></div>`
+    <div><div class="semi sm mb2 so">Stress Impact</div><div class="xs mu" style="line-height:1.6">${shi} high-stress days correlated with low mood. Stress tanks testosterone too — fact.</div></div></div>`
         : ""
     }
     <div class="ii" style="border-bottom:none"><div class="ii-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div>
-      <div><div class="semi sm mb2 ok">Best Days</div><div class="xs mu" style="line-height:1.6">Peak days align with energy above 7. The data doesn't lie.</div></div>
-    </div>
+    <div><div class="semi sm mb2 ok">Best Days</div><div class="xs mu" style="line-height:1.6">Your peak performance days cluster at energy 7+. That's your window.</div></div></div>
   </div>
   ${
     logs.length >= 3
@@ -589,7 +782,7 @@
         aos(body);
       }
 
-      /* Calendar */
+      /* ─── CALENDAR ───────────────────────────────── */
       let cY,
         cM,
         selD = null;
@@ -680,7 +873,8 @@
       <div class="ms"><div class="mv so">${log.stress}</div><div class="ml">Stress</div></div>
       <div class="ms"><div class="mv so">${log.sleepHours}h</div><div class="ml">Sleep</div></div>
     </div>
-    ${log.notes ? `<div class="xs mu mt3" style="line-height:1.6;border-top:1px solid var(--rim);padding-top:9px;margin-top:9px">"${log.notes}"</div>` : ""}
+    ${log.phase ? `<div class="xs mu mt3" style="line-height:1.6;border-top:1px solid var(--rim);padding-top:9px;margin-top:9px">Phase: ${log.phase}</div>` : ""}
+    ${log.notes ? `<div class="xs mu mt2" style="line-height:1.6;font-style:italic">"${log.notes}"</div>` : ""}
   </div>`;
       }
       document.getElementById("cal-p").addEventListener("click", () => {
@@ -706,198 +900,625 @@
         rCal();
       });
 
-      /* Partner */
-      let pD = { info: null, req: null, logs: [], sync: false },
-        pL = null;
+      /* ─── PARTNER SYSTEM ─────────────────────────── */
+      // Real-time via 6-digit invite CODES stored in Firestore
+      // No email needed — just share the code
+
+      let pD = { info: null, req: null, logs: [], sync: false };
+      let pListeners = [];
+      let myCode = null;
+
+      // Generate a random 6-char alphanumeric code
+      function genCode() {
+        return Math.random().toString(36).substr(2, 6).toUpperCase();
+      }
+
+      // Create or get my invite code
+      async function getMyCode() {
+        if (!fbOk || !me) return null;
+        const snap = await getDoc(doc(db, "users", me.uid));
+        if (snap.data()?.inviteCode) return snap.data().inviteCode;
+        const code = genCode();
+        await updateDoc(doc(db, "users", me.uid), { inviteCode: code });
+        return code;
+      }
+
+      // Real-time listener for incoming partner requests
+      function listenForPartnerRequests() {
+        if (!fbOk || !me) return;
+        const unsub = onSnapshot(doc(db, "users", me.uid), async (snap) => {
+          const data = snap.data() || {};
+          const partnerUid = data.partnerUid;
+          const req = data.pendingRequest;
+          if (req && !partnerUid) {
+            // Someone wants to connect
+            pD.req = {
+              fromUid: req.fromUid,
+              fromName: req.fromName,
+              fromEmail: req.fromEmail,
+              fromCode: req.fromCode,
+            };
+            addNotif({
+              type: "partner",
+              title: "Partner request!",
+              body: `${req.fromName} wants to sync with you.`,
+              icon: "heart",
+            });
+          } else {
+            pD.req = null;
+          }
+          if (partnerUid) {
+            // Fetch partner profile + start real-time log sync
+            try {
+              const ps = await getDoc(doc(db, "users", partnerUid));
+              if (ps.exists()) pD.info = { uid: partnerUid, ...ps.data() };
+              startPartnerLogSync(partnerUid);
+            } catch (e) {}
+          } else {
+            pD.info = null;
+            pD.logs = [];
+          }
+          if (cur === "partner") rPart();
+        });
+        pListeners.push(unsub);
+      }
+
+      // Real-time sync of partner logs
+      function startPartnerLogSync(partnerUid) {
+        if (!fbOk) return;
+        const unsub = onSnapshot(
+          query(
+            collection(db, "users", partnerUid, "logs"),
+            orderBy("date", "desc"),
+            limit(30),
+          ),
+          (snap) => {
+            pD.logs = snap.docs.map((d) => ({ date: d.id, ...d.data() }));
+            if (cur === "partner") rPart();
+          },
+          (e) => console.warn("Partner log sync:", e),
+        );
+        pListeners.push(unsub);
+      }
+
       async function rPart() {
         const body = document.getElementById("pt-body");
         if (!fbOk || !me) {
           body.innerHTML = `<div class="card tc" style="padding:24px 14px">
-    <div style="width:44px;height:44px;border-radius:12px;background:var(--layer);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;margin:0 auto 11px">
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="20" height="20"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-    </div>
-    <h3 class="mb2">Sign in for Partner Sync</h3>
-    <p class="sm mu">Connect with your partner and share wellness data.</p>
-  </div>`;
+      <div style="width:44px;height:44px;border-radius:12px;background:var(--layer);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;margin:0 auto 11px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="20" height="20"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+      </div>
+      <h3 class="mb2">Sign in for Partner Sync</h3>
+      <p class="sm mu">Google sign-in required for real-time partner features.</p>
+    </div>`;
           return;
         }
-        if (!pL) {
-          pL = onSnapshot(doc(db, "users", me.uid), async (snap) => {
-            const pu = snap.data()?.partnerUid;
-            if (pu) {
-              const ps = await getDoc(doc(db, "users", pu));
-              if (ps.exists()) {
-                pD.info = { uid: pu, ...ps.data() };
-                pD.sync = true;
-                const ls = await getDocs(
-                  query(
-                    collection(db, "users", pu, "logs"),
-                    orderBy("date", "desc"),
-                    limit(30),
-                  ),
-                );
-                pD.logs = ls.docs.map((d) => ({ date: d.id, ...d.data() }));
-              }
-            }
-            rPUI(body);
-          });
-          onSnapshot(
-            query(
-              collection(db, "users", me.uid, "partnerRequests"),
-              where("status", "==", "pending"),
-            ),
-            (snap) => {
-              const r = snap.docs[0]?.data();
-              pD.req = r ? { id: snap.docs[0].id, ...r } : null;
-              rPUI(body);
-            },
-          );
-        }
-        rPUI(body);
-      }
-      function rPUI(body) {
+
+        myCode = await getMyCode();
         let h = "";
+
+        // Incoming request banner
         if (pD.req) {
-          h += `<div class="card" style="border-color:rgba(124,58,237,.28);background:rgba(124,58,237,.05)">
-    <div class="f ic g3 mb3">
-      <div style="width:34px;height:34px;border-radius:9px;background:rgba(124,58,237,.13);display:flex;align-items:center;justify-content:center">
-        <svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="16" height="16"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          h += `<div class="card" style="border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.05);animation:fUp .3s ease">
+      <div class="f ic g3 mb3">
+        <div style="width:34px;height:34px;border-radius:9px;background:rgba(52,211,153,.15);display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2" width="16" height="16"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        </div>
+        <div>
+          <div class="semi sm ok f ic g2"><div class="live-dot"></div>Partner Request!</div>
+          <div class="xs mu">${pD.req.fromName} (code: ${pD.req.fromCode || "—"}) wants to sync with you.</div>
+        </div>
       </div>
-      <div><div class="semi sm so">Partner Request</div><div class="xs mu">${pD.req.fromName} (${pD.req.fromEmail})</div></div>
-    </div>
-    <div class="apair" style="gap:7px">
-      <button class="btn btn-p btn-sm" id="acc">Accept</button>
-      <button class="btn btn-o btn-sm" id="dec">Decline</button>
-    </div>
-  </div>`;
+      <div class="apair" style="gap:7px">
+        <button class="btn btn-a btn-sm" id="acc">Accept & Connect</button>
+        <button class="btn btn-o btn-sm" id="dec">Decline</button>
+      </div>
+    </div>`;
         }
+
+        // Connected partner — real-time data
         if (pD.info) {
           const ini = (pD.info.displayName || "?")[0].toUpperCase();
-          h += `<div class="card"><div class="f ic g3 mb3">
-      <div class="av">${ini}</div>
-      <div class="f1"><div class="semi sm">${pD.info.displayName || "Partner"}</div>
-      <div class="xs mu">${pD.info.email || ""}</div>
-      <span class="badge bgr" style="margin-top:4px">Connected</span></div>
-    </div><div class="div"></div>
-    <div class="f ic jb"><div><div class="semi sm">Share My Data</div><div class="xs mu">Mood, energy, sleep only</div></div>
-      <label class="tog"><input type="checkbox" id="sync-tog" ${pD.sync ? "checked" : ""}/><span class="tog-sl"></span></label>
-    </div>
-    <button class="btn btn-g btn-d btn-sm mt3" id="disc" style="justify-content:flex-start;gap:7px">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>Disconnect
-    </button></div>`;
+          h += `<div class="card">
+      <div class="f ic g3 mb3">
+        <div class="av">${ini}</div>
+        <div class="f1">
+          <div class="f ic g2"><div class="live-dot"></div><div class="semi sm">${pD.info.displayName || "Partner"}</div></div>
+          <div class="xs mu">${pD.info.email || ""}</div>
+          <span class="badge bgr" style="margin-top:4px">Live Sync Active</span>
+        </div>
+      </div>
+      <div class="div"></div>
+      <div class="f ic jb">
+        <div><div class="semi sm">Share My Data</div><div class="xs mu">Mood, energy, sleep — no notes</div></div>
+        <label class="tog"><input type="checkbox" id="sync-tog" ${pD.sync ? "checked" : ""}/><span class="tog-sl"></span></label>
+      </div>
+      <button class="btn btn-g btn-d btn-sm mt3" id="disc" style="justify-content:flex-start;gap:7px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+        Disconnect
+      </button>
+    </div>`;
+
           if (pD.sync && pD.logs.length) {
-            h += `<div class="card"><div class="semi sm mb3">Partner's Week</div>
-      ${pD.logs
-        .slice(0, 7)
-        .map(
-          (l) => `<div class="f ic g3" style="margin-bottom:6px">
-        <div class="xs mu" style="width:34px">${l.date.slice(5)}</div>
-        <div style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:${l.mood >= 8 ? "var(--ink)" : l.mood >= 6 ? "var(--vi)" : "var(--mute)"}"></div>
-        <div class="pb f1"><div class="pf" style="width:${l.energy * 10}%"></div></div>
-        <div class="xs mu" style="width:38px">${(l.phase || "").split(" ")[0]}</div>
-      </div>`,
-        )
-        .join("")}</div>`;
+            const partnerPh = pD.logs[0]?.phase || "—";
+            h += `<div class="card">
+        <div class="f ic jb mb3">
+          <div class="semi sm">Partner's Data</div>
+          <div class="f ic g2 xs mu"><div class="live-dot"></div>Real-time</div>
+        </div>
+        <div class="f ic jb mb3">
+          <div class="xs mu">Current phase</div>
+          <div class="xs so semi">${partnerPh}</div>
+        </div>
+        ${pD.logs
+          .slice(0, 7)
+          .map(
+            (l) => `<div class="f ic g3" style="margin-bottom:7px">
+          <div class="xs mu" style="width:34px">${l.date.slice(5)}</div>
+          <div style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:${l.mood >= 8 ? "var(--ink)" : l.mood >= 6 ? "var(--vi)" : "var(--mute)"}"></div>
+          <div class="pb f1"><div class="pf" style="width:${l.energy * 10}%"></div></div>
+          <div class="xs mu" style="width:30px;text-align:right">${l.energy}/10</div>
+        </div>`,
+          )
+          .join("")}
+      </div>`;
           }
         } else if (!pD.req) {
-          h += `<div class="card tc" style="padding:20px 14px">
-    <div style="width:44px;height:44px;border-radius:12px;background:var(--layer);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;margin:0 auto 11px">
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="20" height="20"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+          // Not connected — show code-based invite system
+          h += `
+    <!-- My invite code -->
+    <div class="card">
+      <div class="semi sm mb2">Your Invite Code</div>
+      <div class="xs mu mb3">Share this code with your partner. They enter it below to connect.</div>
+      <div class="code-box" id="code-display" title="Click to copy">${myCode || "••••••"}</div>
+      <div class="code-copy" id="code-copy-hint">Tap to copy</div>
+      <div class="f g2 mt3">
+        <button class="btn btn-o btn-sm f1" id="regen-code-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          New Code
+        </button>
+        <button class="btn btn-p btn-sm f1" id="share-code-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Share
+        </button>
+      </div>
     </div>
-    <h3 class="mb2">Partner Sync</h3><p class="sm mu">Share your journey. Notes stay private.</p>
-  </div>
-  <div class="card"><div class="semi sm mb2">Invite Partner</div>
-    <div class="xs mu mb3">They need a Velour account first.</div>
-    <input type="email" id="pe" class="inp mb3" placeholder="partner@email.com"/>
-    <button class="btn btn-p" id="inv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Send Invite</button>
-    <div id="pmsg" class="mt3 hid"></div>
-  </div>`;
+
+    <!-- Enter partner's code -->
+    <div class="card">
+      <div class="semi sm mb2">Enter Partner's Code</div>
+      <div class="xs mu mb3">Ask them for their 6-character code and enter it here.</div>
+      <input type="text" id="partner-code-inp" class="inp mb3" placeholder="Enter code (e.g. AB12CD)" 
+        style="text-transform:uppercase;letter-spacing:.15em;font-family:'Bricolage Grotesque',sans-serif;font-size:1.1rem;text-align:center;height:44px"
+        maxlength="6"/>
+      <button class="btn btn-p" id="connect-code-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        Connect
+      </button>
+      <div id="code-msg" class="mt3 hid"></div>
+    </div>`;
         }
-        h += `<div class="card f g3"><div style="width:30px;height:30px;border-radius:7px;background:rgba(124,58,237,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-    <svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-  </div><div><div class="semi sm mb2">Privacy First</div><div class="xs mu" style="line-height:1.5">Notes never shared. Only mood, energy, sleep and phase — always optional.</div></div></div>`;
+
+        // Privacy note
+        h += `<div class="card f g3">
+    <div style="width:30px;height:30px;border-radius:7px;background:rgba(124,58,237,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+    </div>
+    <div><div class="semi sm mb2">Privacy First</div>
+    <div class="xs mu" style="line-height:1.5">Personal notes are never shared. Only mood, energy, sleep and phase — always optional and reversible.</div></div>
+  </div>`;
+
         body.innerHTML = h;
+
+        // Attach events
         document.getElementById("acc")?.addEventListener("click", async () => {
+          if (!pD.req) return;
           const b = writeBatch(db);
-          b.set(
-            doc(db, "users", me.uid),
-            { partnerUid: pD.req.fromUid },
-            { merge: true },
-          );
-          b.set(
-            doc(db, "users", pD.req.fromUid),
-            { partnerUid: me.uid },
-            { merge: true },
-          );
-          b.update(doc(db, "users", me.uid, "partnerRequests", pD.req.id), {
-            status: "accepted",
+          b.update(doc(db, "users", me.uid), {
+            partnerUid: pD.req.fromUid,
+            pendingRequest: deleteField(),
+          });
+          b.update(doc(db, "users", pD.req.fromUid), {
+            partnerUid: me.uid,
+            pendingRequest: deleteField(),
           });
           await b.commit();
           pD.req = null;
-          rPUI(body);
+          rPUI_refresh();
         });
-        document.getElementById("dec")?.addEventListener("click", () => {
+        document.getElementById("dec")?.addEventListener("click", async () => {
+          await updateDoc(doc(db, "users", me.uid), {
+            pendingRequest: deleteField(),
+          });
           pD.req = null;
-          rPUI(body);
+          rPart();
         });
         document.getElementById("sync-tog")?.addEventListener("change", (e) => {
           pD.sync = e.target.checked;
-          rPUI(body);
         });
         document.getElementById("disc")?.addEventListener("click", async () => {
-          if (!confirm("Disconnect?")) return;
+          if (!confirm("Disconnect from partner?")) return;
           const b = writeBatch(db);
-          b.update(doc(db, "users", me.uid), { partnerUid: null });
-          b.update(doc(db, "users", pD.info.uid), { partnerUid: null });
+          b.update(doc(db, "users", me.uid), { partnerUid: deleteField() });
+          b.update(doc(db, "users", pD.info.uid), {
+            partnerUid: deleteField(),
+          });
           await b.commit();
           pD = { info: null, req: null, logs: [], sync: false };
-          pL = null;
-          rPUI(body);
+          pListeners.forEach((u) => u());
+          pListeners = [];
+          listenForPartnerRequests();
+          rPart();
         });
-        document.getElementById("inv")?.addEventListener("click", async () => {
-          const em = document.getElementById("pe").value.trim();
-          if (!em) return;
-          const msg = document.getElementById("pmsg");
-          try {
-            const s = await getDocs(
-              query(collection(db, "users"), where("email", "==", em)),
-            );
-            if (s.empty) {
-              msg.className = "mt3 ebox";
-              msg.textContent = "No account found for that email.";
-              msg.classList.remove("hid");
-              return;
+
+        // Code copy
+        document
+          .getElementById("code-display")
+          ?.addEventListener("click", async () => {
+            if (myCode) {
+              try {
+                await navigator.clipboard.writeText(myCode);
+                document.getElementById("code-copy-hint").textContent =
+                  "Copied!";
+              } catch (e) {
+                document.getElementById("code-copy-hint").textContent =
+                  "Code: " + myCode;
+              }
+              setTimeout(() => {
+                const el = document.getElementById("code-copy-hint");
+                if (el) el.textContent = "Tap to copy";
+              }, 2000);
             }
-            const pu = s.docs[0].id;
-            if (pu === me.uid) {
-              msg.className = "mt3 ebox";
-              msg.textContent = "That's you.";
-              msg.classList.remove("hid");
-              return;
+          });
+
+        // Share code via Web Share API
+        document
+          .getElementById("share-code-btn")
+          ?.addEventListener("click", async () => {
+            const txt = `Join me on Velour! Use code ${myCode} to sync our wellness data. Get the app at ${location.href}`;
+            if (navigator.share) {
+              try {
+                await navigator.share({
+                  title: "Velour Partner Invite",
+                  text: txt,
+                });
+                return;
+              } catch (e) {}
             }
-            await setDoc(doc(db, "users", pu, "partnerRequests", me.uid), {
-              fromUid: me.uid,
-              fromName: me.displayName || "A Velour User",
-              fromEmail: me.email || "",
-              status: "pending",
-              timestamp: Date.now(),
+            // Fallback: copy
+            try {
+              await navigator.clipboard.writeText(txt);
+            } catch (e) {}
+            addNotif({
+              type: "info",
+              title: "Code copied",
+              body: "Share link copied to clipboard.",
+              icon: "share",
             });
-            msg.className = "mt3 obox";
-            msg.textContent = "Invite sent!";
-            msg.classList.remove("hid");
-            document.getElementById("pe").value = "";
-          } catch (e) {
-            const msg = document.getElementById("pmsg");
-            msg.className = "mt3 ebox";
-            msg.textContent = e.message;
-            msg.classList.remove("hid");
-          }
+          });
+
+        // Regenerate code
+        document
+          .getElementById("regen-code-btn")
+          ?.addEventListener("click", async () => {
+            const code = genCode();
+            await updateDoc(doc(db, "users", me.uid), { inviteCode: code });
+            myCode = code;
+            document.getElementById("code-display").textContent = code;
+          });
+
+        // Connect via code
+        document
+          .getElementById("connect-code-btn")
+          ?.addEventListener("click", async () => {
+            const raw = document
+              .getElementById("partner-code-inp")
+              .value.trim()
+              .toUpperCase();
+            const msg = document.getElementById("code-msg");
+            if (raw.length !== 6) {
+              msg.className = "mt3 ebox";
+              msg.textContent = "Enter a 6-character code.";
+              msg.classList.remove("hid");
+              return;
+            }
+            try {
+              // Find user with this invite code
+              const snap = await getDocs(
+                query(collection(db, "users"), where("inviteCode", "==", raw)),
+              );
+              if (snap.empty) {
+                msg.className = "mt3 ebox";
+                msg.textContent =
+                  "No user found with that code. Ask them to check their code.";
+                msg.classList.remove("hid");
+                return;
+              }
+              const partnerDoc = snap.docs[0];
+              if (partnerDoc.id === me.uid) {
+                msg.className = "mt3 ebox";
+                msg.textContent = "That's your own code, champion.";
+                msg.classList.remove("hid");
+                return;
+              }
+              const partnerData = partnerDoc.data();
+              // Send pending request to their profile (real-time listener will pick it up)
+              await updateDoc(doc(db, "users", partnerDoc.id), {
+                pendingRequest: {
+                  fromUid: me.uid,
+                  fromName: me.displayName || "A Velour User",
+                  fromEmail: me.email || "",
+                  fromCode: myCode,
+                  timestamp: Date.now(),
+                },
+              });
+              msg.className = "mt3 obox";
+              msg.textContent = `Request sent to ${partnerData.displayName || "your partner"}! They'll see it instantly.`;
+              msg.classList.remove("hid");
+              document.getElementById("partner-code-inp").value = "";
+            } catch (e) {
+              msg.className = "mt3 ebox";
+              msg.textContent = "Error: " + e.message;
+              msg.classList.remove("hid");
+            }
+          });
+      }
+
+      function rPUI_refresh() {
+        // Small helper to refresh partner UI after accept
+        pD.req = null;
+        rPart();
+      }
+
+      /* ─── NOTIFICATIONS ──────────────────────────── */
+      let notifs = [];
+      let unreadCount = 0;
+
+      function addNotif({ type, title, body, icon }) {
+        notifs.unshift({
+          type,
+          title,
+          body,
+          icon,
+          ts: Date.now(),
+          read: false,
+        });
+        if (notifs.length > 50) notifs = notifs.slice(0, 50);
+        unreadCount++;
+        updateNotifBadge();
+        renderNotifList();
+      }
+
+      function updateNotifBadge() {
+        const badge = document.getElementById("notif-badge");
+        if (unreadCount > 0) {
+          badge.textContent = unreadCount > 9 ? "9+" : unreadCount;
+          badge.style.display = "flex";
+        } else {
+          badge.style.display = "none";
+        }
+      }
+
+      function renderNotifList() {
+        const list = document.getElementById("notif-list");
+        if (!notifs.length) {
+          list.innerHTML = `<div class="tc mu xs" style="padding:32px 16px">No notifications yet.<br>Log daily and connect with a partner to get started.</div>`;
+          return;
+        }
+        const iconMap = {
+          log: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="15" height="15"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+          partner:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2" width="15" height="15"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>',
+          check:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2" width="15" height="15"><polyline points="20 6 9 17 4 12"/></svg>',
+          info: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--lil)" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+          push: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" width="15" height="15"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>',
+        };
+        const bgMap = {
+          log: "rgba(124,58,237,.13)",
+          partner: "rgba(52,211,153,.13)",
+          check: "rgba(52,211,153,.13)",
+          info: "rgba(124,58,237,.13)",
+          push: "rgba(251,191,36,.13)",
+        };
+        list.innerHTML = notifs
+          .map(
+            (n, i) => `
+    <div class="notif-item ${n.read ? "" : "unread"}" data-i="${i}">
+      <div class="notif-icon" style="background:${bgMap[n.icon] || bgMap.info}">${iconMap[n.icon] || iconMap.info}</div>
+      <div class="f1">
+        <div class="semi sm">${n.title}</div>
+        <div class="xs mu" style="line-height:1.5;margin-top:2px">${n.body}</div>
+        <div class="xs mu" style="margin-top:3px;opacity:.6">${timeAgo(n.ts)}</div>
+      </div>
+    </div>`,
+          )
+          .join("");
+        list.querySelectorAll(".notif-item").forEach((el) => {
+          el.addEventListener("click", () => {
+            const i = +el.dataset.i;
+            notifs[i].read = true;
+            updateNotifBadge();
+            renderNotifList();
+          });
         });
       }
 
-      /* AI Chat */
+      function timeAgo(ts) {
+        const s = Math.floor((Date.now() - ts) / 1000);
+        if (s < 60) return "just now";
+        if (s < 3600) return Math.floor(s / 60) + "m ago";
+        if (s < 86400) return Math.floor(s / 3600) + "h ago";
+        return Math.floor(s / 86400) + "d ago";
+      }
+
+      // Notification panel open/close
+      document.getElementById("notif-btn").addEventListener("click", () => {
+        document.getElementById("notif-panel").classList.add("on");
+        document.getElementById("notif-overlay").classList.add("on");
+        notifs.forEach((n) => (n.read = true));
+        unreadCount = 0;
+        updateNotifBadge();
+        renderNotifList();
+      });
+      document
+        .getElementById("notif-close")
+        .addEventListener("click", closeNotifPanel);
+      document
+        .getElementById("notif-overlay")
+        .addEventListener("click", closeNotifPanel);
+      function closeNotifPanel() {
+        document.getElementById("notif-panel").classList.remove("on");
+        document.getElementById("notif-overlay").classList.remove("on");
+      }
+
+      /* ─── PUSH NOTIFICATIONS ─────────────────────── */
+      let pushEnabled = false;
+
+      async function enablePush() {
+        if (!("Notification" in window)) {
+          addNotif({
+            type: "info",
+            title: "Not supported",
+            body: "Push notifications aren't supported in this browser.",
+            icon: "info",
+          });
+          return;
+        }
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") {
+          addNotif({
+            type: "info",
+            title: "Permission denied",
+            body: "Allow notifications in browser settings to enable push.",
+            icon: "info",
+          });
+          return;
+        }
+        if (!("serviceWorker" in navigator)) {
+          return;
+        }
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          if (!VAPID_KEY.startsWith("YOUR_")) {
+            const sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(VAPID_KEY),
+            });
+            // Save subscription to Firestore for server-sent pushes
+            if (fbOk && me) {
+              await setDoc(
+                doc(db, "users", me.uid, "push", "subscription"),
+                {
+                  endpoint: sub.endpoint,
+                  keys: {
+                    p256dh: btoa(
+                      String.fromCharCode(
+                        ...new Uint8Array(sub.getKey("p256dh")),
+                      ),
+                    ),
+                    auth: btoa(
+                      String.fromCharCode(
+                        ...new Uint8Array(sub.getKey("auth")),
+                      ),
+                    ),
+                  },
+                },
+                { merge: true },
+              );
+            }
+          }
+          pushEnabled = true;
+          await setPref("push_enabled", true);
+          scheduleLocalReminder();
+          addNotif({
+            type: "push",
+            title: "Push enabled!",
+            body: "You'll get daily check-in reminders and partner updates.",
+            icon: "push",
+          });
+          document.getElementById("enable-push-btn").textContent =
+            "Notifications Active";
+          document.getElementById("enable-push-btn").style.background =
+            "rgba(52,211,153,.2)";
+          document.getElementById("enable-push-btn").style.color = "var(--ok)";
+        } catch (e) {
+          addNotif({
+            type: "info",
+            title: "Push setup failed",
+            body: e.message,
+            icon: "info",
+          });
+        }
+      }
+
+      function scheduleLocalReminder() {
+        // Schedule a local "reminder" using the Notifications API directly
+        // (true push requires a server; this fires when app is in background/foreground)
+        if ("Notification" in window && Notification.permission === "granted") {
+          // Check once per hour if user hasn't logged today
+          setInterval(
+            async () => {
+              const log = await iGet("logs", tod());
+              if (!log) {
+                new Notification("Velour — Daily Check-in", {
+                  body: "How are you feeling today, chief? Log takes 30 seconds.",
+                  icon: "/icon-192.png",
+                  tag: "daily-reminder",
+                });
+              }
+            },
+            60 * 60 * 1000,
+          ); // check every hour
+          // Also fire at 8pm local time
+          scheduleAt(20, 0, async () => {
+            const log = await iGet("logs", tod());
+            if (!log)
+              new Notification("Velour", {
+                body: "End-of-day check-in? Takes 30 seconds.",
+                icon: "/icon-192.png",
+                tag: "evening-reminder",
+              });
+          });
+        }
+      }
+
+      function scheduleAt(hour, min, fn) {
+        const now = new Date(),
+          target = new Date();
+        target.setHours(hour, min, 0, 0);
+        if (target <= now) target.setDate(target.getDate() + 1);
+        const ms = target - now;
+        setTimeout(() => {
+          fn();
+          setInterval(fn, 24 * 60 * 60 * 1000);
+        }, ms);
+      }
+
+      function urlBase64ToUint8Array(base64String) {
+        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding)
+          .replace(/-/g, "+")
+          .replace(/_/g, "/");
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i)
+          outputArray[i] = rawData.charCodeAt(i);
+        return outputArray;
+      }
+
+      document
+        .getElementById("enable-push-btn")
+        .addEventListener("click", enablePush);
+
+      /* ─── AI CHAT ────────────────────────────────── */
       let chatH = [];
-      const SYS = `You are Velour's AI wellness coach — helpful, witty, concise. Give real actionable advice on mood, energy, stress, sleep, men's health. Be encouraging but honest. Use light humor. Never diagnose. 2-3 sentences max unless user wants detail.`;
+      const SYS = `You are Velour's AI wellness coach — helpful, witty, concise.
+Context: Velour is a humor app that tracks a fictional "spermatogenesis cycle" (74 days) for men, mimicking period tracking apps. The humor is self-aware and tongue-in-cheek.
+Give real actionable wellness advice on mood, energy, stress, sleep, and men's health. 
+Be encouraging, honest, and occasionally riff on the "male cycle" concept humorously.
+Never diagnose. Suggest doctors for medical issues. Max 3 sentences unless user asks for detail.`;
+
       async function sendM(txt) {
         if (!txt.trim()) return;
         document.getElementById("chat-sugg")?.remove();
@@ -926,7 +1547,7 @@
             body: JSON.stringify({
               system_instruction: { parts: [{ text: SYS }] },
               contents,
-              generationConfig: { maxOutputTokens: 380, temperature: 0.8 },
+              generationConfig: { maxOutputTokens: 400, temperature: 0.8 },
             }),
           });
           const json = await res.json();
@@ -940,8 +1561,8 @@
           document.getElementById(tid)?.remove();
           addB(
             GK.startsWith("YOUR_")
-              ? "Add your Gemini API key in index.html. Free at aistudio.google.com"
-              : "Connection error.",
+              ? "Add your Gemini API key to activate the AI. Free at aistudio.google.com"
+              : "Connection error. Try again.",
             false,
           );
         }
@@ -992,7 +1613,7 @@
         .querySelectorAll(".sug[data-q]")
         .forEach((b) => b.addEventListener("click", () => sendM(b.dataset.q)));
 
-      /* Nav events */
+      /* ─── NAV EVENTS ─────────────────────────────── */
       document.querySelectorAll(".ni[data-nav]").forEach((b) =>
         b.addEventListener("click", () => {
           const t = b.dataset.nav;
@@ -1006,15 +1627,40 @@
         .querySelectorAll("[data-back]")
         .forEach((b) => b.addEventListener("click", goBack));
 
-      /* Boot */
+      /* ─── BOOT ───────────────────────────────────── */
       async function boot() {
         spawnBubbles();
         idb = await openDB();
         rOb();
         buildSx();
         uRanges();
+        renderNotifList();
         if ("serviceWorker" in navigator)
           navigator.serviceWorker.register("sw.js").catch(() => {});
+
+        // Check push permission state
+        if ("Notification" in window && Notification.permission === "granted") {
+          pushEnabled = true;
+          const el = document.getElementById("enable-push-btn");
+          el.textContent = "Notifications Active";
+          el.style.background = "rgba(52,211,153,.2)";
+          el.style.color = "var(--ok)";
+          scheduleLocalReminder();
+        }
+
+        // Load cycle start from Firestore if logged in
+        if (fbOk)
+          onAuthStateChanged(auth, async (u) => {
+            if (u && cur === "login") await afterLogin(u);
+            if (u) {
+              try {
+                const s = await getDoc(doc(db, "users", u.uid));
+                const cs = s.data()?.cycleStart;
+                if (cs) await setPref("cycle_start", cs);
+              } catch (e) {}
+            }
+          });
+
         if (!fbOk) {
           const ob = await getPref("onboarded");
           if (ob) {

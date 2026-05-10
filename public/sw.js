@@ -36,8 +36,8 @@ self.addEventListener("push", (e) => {
   e.waitUntil(
     self.registration.showNotification(data.title || "Velour", {
       body: data.body || "Time to check in.",
-      icon: "/icon-192.png",
-      badge: "/icon-72.png",
+      icon: "/web-app-manifest-192x192.png", // ← updated
+      badge: "/favicon-96x96.png", // ← updated
       tag: data.tag || "velour-notif",
       data: data,
       actions: [

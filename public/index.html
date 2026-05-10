@@ -12,6 +12,9 @@
       name="apple-mobile-web-app-status-bar-style"
       content="black-translucent"
     />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <title>Velour</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -28,20 +31,10 @@
       <!-- NAV -->
       <nav id="nav">
         <div class="nav-logo">
-          <div class="nlm">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#fff"
-              stroke-width="2.5"
-              width="15"
-              height="15"
-            >
-              <path
-                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-              />
-            </svg>
-          </div>
+          <div class="nlm" style="overflow:hidden;padding:0">
+  <img src="favicon-96x96.png" alt=""
+       style="width:100%;height:100%;object-fit:cover;border-radius:7px"/>
+</div>
           <span class="fd bold" style="font-size: 0.88rem">Velour</span>
         </div>
         <button class="ni on" data-nav="dashboard">

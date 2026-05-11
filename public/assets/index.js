@@ -38,7 +38,7 @@ const FB = {
 };
 const VAPID_KEY =
   "BDBnahouOzDo_PV-dJ30TOeSv4YGysdUic8QlnRaLtn2c6FgKN-cAMjiOAo3YxlZCyZujh2at_Ljskz5e5e56u0"; // from Firebase Console > Cloud Messaging
-const GK = "env.GEMINI_API_KEY"; 
+const GK = env.GEMINI_API_KEY; 
 const GU = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GK}`;
 
 /* ─── FIREBASE INIT ──────────────────────────── */

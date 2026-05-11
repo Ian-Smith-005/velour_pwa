@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width,initial-scale=1,viewport-fit=cover"
     />
-    <meta name="theme-color" content="#5B0EA6" />
+    <meta name="theme-color" content="#141217" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta
       name="apple-mobile-web-app-status-bar-style"
@@ -31,10 +31,18 @@
       <!-- NAV -->
       <nav id="nav">
         <div class="nav-logo">
-          <div class="nlm" style="overflow:hidden;padding:0">
-  <img src="favicon-96x96.png" alt=""
-       style="width:100%;height:100%;object-fit:cover;border-radius:7px"/>
-</div>
+          <div class="nlm" style="overflow: hidden; padding: 0">
+            <img
+              src="favicon-96x96.png"
+              alt=""
+              style="
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 7px;
+              "
+            />
+          </div>
           <span class="fd bold" style="font-size: 0.88rem">Velour</span>
         </div>
         <button class="ni on" data-nav="dashboard">
@@ -106,6 +114,7 @@
               stroke-width="2"
             >
               <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+              ff
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" /></svg
             ><span>Sign out</span>
@@ -114,8 +123,129 @@
       </nav>
 
       <div id="ct">
+        <!-- MODE SELECT -->
+        <div id="screen-mode" class="sc on">
+          <div class="mode-wrap">
+            <div class="mode-logo" data-a="1">
+              <div class="mode-icon-ring">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#fff"
+                  stroke-width="2.5"
+                  width="26"
+                  height="26"
+                >
+                  <path
+                    d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                  />
+                </svg>
+              </div>
+              <div class="mode-title">Velour</div>
+              <div class="mode-sub">Premium wellness companion</div>
+            </div>
+            <div class="mode-label" data-a="2">Who are you?</div>
+            <div class="mode-card" id="mode-client-btn" data-a="3">
+              <div class="mode-card-icon client">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--lavender)"
+                  stroke-width="2"
+                  width="20"
+                  height="20"
+                >
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </div>
+              <div class="mode-card-body">
+                <div class="mode-card-title">I'm tracking my cycle</div>
+                <div class="mode-card-desc">
+                  Log your daily wellness, track your 74-day spermatogenesis
+                  cycle and view personal insights.
+                </div>
+              </div>
+              <span class="mode-card-badge badge-lav">Client</span>
+            </div>
+            <div class="mode-divider" data-a="4"><span>or</span></div>
+            <div
+              class="mode-card partner-card"
+              id="mode-partner-btn"
+              data-a="5"
+            >
+              <div class="mode-card-icon partner">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--champagne)"
+                  stroke-width="2"
+                  width="20"
+                  height="20"
+                >
+                  <path
+                    d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
+                  />
+                </svg>
+              </div>
+              <div class="mode-card-body">
+                <div class="mode-card-title">I'm a partner viewing updates</div>
+                <div class="mode-card-desc">
+                  View your partner's phase, wellness insights and receive
+                  notifications when they log in. Read-only.
+                </div>
+              </div>
+              <span class="mode-card-badge badge-gold">Partner</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PARTNER VIEW (read-only) -->
+        <div id="screen-partner-view" class="sc">
+          <div class="pv-header">
+            <div class="f ic jb mb2">
+              <div class="pv-badge">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  width="10"
+                  height="10"
+                >
+                  <path
+                    d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
+                  />
+                </svg>
+                Partner View
+              </div>
+              <button class="bb" id="pv-signout-btn" title="Sign out">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  width="14"
+                  height="14"
+                >
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              </button>
+            </div>
+            <div class="pv-title">Your Partner's Cycle</div>
+            <div class="pv-sub">Read-only · Updates in real-time</div>
+          </div>
+          <div
+            class="scr px5 f col"
+            style="gap: 11px; padding-top: 16px; padding-bottom: 28px"
+            id="pv-body"
+          ></div>
+        </div>
+
         <!-- LOGIN -->
-        <div id="screen-login" class="sc on">
+        <div id="screen-login" class="sc">
           <div
             class="f col ic jc"
             style="

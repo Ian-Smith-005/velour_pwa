@@ -106,6 +106,21 @@
         </button>
         <div class="nav-foot">
           <div class="div" style="margin: 0 0 8px"></div>
+          <button class="ni" id="help-btn" data-nav="help">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              width="16"
+              height="16"
+            >
+              <path
+                d="M9.09 9a3 3 0 015.82 1c0 2-3 3-3 3h-2.22a.5.5 0 010-1H14a2 2 0 004 0v.5a.5.5 0 01-1 0V12a1 1 0 01-2 0v-1a1 1 0 00-2 0v1a.5.5 0 01-1 0v-1.5a3 3 0 003-3h-2zM9 12a2 2 0 100 4 2 2 0 000-4z"
+              />
+            </svg>
+            Help & Tutorial
+          </button>
           <button class="ni" id="signout-btn">
             <svg
               viewBox="0 0 24 24"
@@ -382,13 +397,12 @@
                 class="f jb ic mb3"
                 style="padding-top: env(safe-area-inset-top)"
               >
-                <div>
-                  <div id="d-greet" class="greet"></div>
-                  <div
-                    id="d-name"
-                    class="mu xs mt2"
-                    style="margin-top: 3px"
-                  ></div>
+                <div class="f ic g3">
+                  <img id="d-avatar" class="avatar" src="" alt="User avatar">
+                  <div>
+                    <div id="d-greet" class="greet"></div>
+                    <div id="d-name" class="mu xs mt2" style="margin-top: 3px"></div>
+                  </div>
                 </div>
                 <button
                   id="notif-btn"
@@ -866,6 +880,128 @@
         </div>
       </div>
       <!-- #ct -->
+
+      <!-- HELP & TUTORIAL -->
+      <div id="screen-help" class="sc">
+        <div class="pgt">
+          <button class="bb" data-back>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              d="M9.09 9a3 3 0 015.82 1c0 2-3 3-3 3h-2.22a.5.5 0 010-1H14a2 2 0 004 0v.5a.5.5 0 01-1 0V12a1 1 0 01-2 0v-1a1 1 0 00-2 0v1a.5.5 0 01-1 0v-1.5a3 3 0 003-3h-2zM9 12a2 2 0 100 4 2 2 0 000-4z"
+            />
+          </svg>
+          Help & Tutorial</div>
+          <div class="scr px5 f col" style="gap: 9px; padding-bottom: 28px" id="help-body">
+            <!-- Cycle Tracking Section -->
+            <div class="f col g4 help-section">
+              <div class="help-section-header" aria-expanded="false" aria-controls="help-content-1">
+                <div class="help-section-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  </svg>
+                </div>
+                <div class="semi xs mb2 mu">Cycle Tracking</div>
+              </div>
+              <div class="help-section-content hid" id="help-content-1">
+                <div class="xs mu">Learn how to log your daily vitals including mood, energy, stress, and sleep. Understand where you are in your 74-day spermatogenesis cycle and what phase you're in (Genesis, Peak, Refinement, Flow, Rest, or Reset).</div>
+              </div>
+            </div>
+
+            <!-- Partner Sync Section -->
+            <div class="f col g4 help-section">
+              <div class="help-section-header" aria-expanded="false" aria-controls="help-content-2">
+                <div class="help-section-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+                  </svg>
+                </div>
+                <div class="semi xs mb2 mu">Partner Sync</div>
+              </div>
+              <div class="help-section-content hid" id="help-content-2">
+                <div class="xs mu">Share your cycle with a partner and view their updates in real-time. See their current phase, wellness insights, and receive notifications when they log in. Connection is established through secure 6-character invite codes.</div>
+              </div>
+            </div>
+
+            <!-- AI Chat Section -->
+            <div class="f col g4 help-section">
+              <div class="help-section-header" aria-expanded="false" aria-controls="help-content-3">
+                <div class="help-section-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                  </svg>
+                </div>
+                <div class="semi xs mb2 mu">AI Chat</div>
+              </div>
+              <div class="help-section-content hid" id="help-content-3">
+                <div class="xs mu">Get personalized wellness advice from our AI coach. Ask about your cycle phase, wellness tips, or anything related to men's health. The AI provides actionable advice with a touch of humor, personalized based on your name and current cycle phase.</div>
+              </div>
+            </div>
+
+            <!-- Notifications Section -->
+            <div class="f col g4 help-section">
+              <div class="help-section-header" aria-expanded="false" aria-controls="help-content-4">
+                <div class="help-section-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  </svg>
+                </div>
+                <div class="semi xs mb2 mu">Notifications</div>
+              </div>
+              <div class="help-section-content hid" id="help-content-4">
+                <div class="xs mu">Set up reminders for daily check-ins and understand the alerts you receive. Notifications include daily wellness reminders, partner connection requests, and partner login alerts. You can enable push notifications for timely reminders even when the app is closed.</div>
+              </div>
+            </div>
+
+            <!-- Insights & Calendar Section -->
+            <div class="f col g4 help-section">
+              <div class="help-section-header" aria-expanded="false" aria-controls="help-content-5">
+                <div class="help-section-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                </div>
+                <div class="semi xs mb2 mu">Insights & Calendar</div>
+              </div>
+              <div class="help-section-content hid" id="help-content-5">
+                <div class="xs mu">View trends, historical data, and your cycle calendar. See your average mood, energy, and sleep over time. The calendar view shows your daily energy levels at a glance, helping you identify patterns and optimize your wellness routine.</div>
+              </div>
+            </div>
+
+            <!-- Privacy & Security Section -->
+            <div class="f col g4 help-section">
+              <div class="help-section-header" aria-expanded="false" aria-controls="help-content-6">
+                <div class="help-section-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <rect x="3" y="11" width="18" height="11" rx="2"/>
+                    <path d="M7 11V7a5 5 0 0110 0v4"/>
+                  </svg>
+                </div>
+                <div class="semi xs mb2 mu">Privacy & Security</div>
+              </div>
+              <div class="help-section-content hid" id="help-content-6">
+                <div class="xs mu">Learn how your data is protected and your privacy is maintained. All data is stored in your own Firebase project, not on our servers. Personal notes are never shared—only mood, energy, sleep, and cycle phase data is shared with partners when connected. You remain in full control of your information.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- NOTIFICATIONS PANEL -->
       <div class="notif-overlay" id="notif-overlay"></div>

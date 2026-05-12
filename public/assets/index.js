@@ -450,6 +450,24 @@ async function afterLogin(user) {
       }
     } catch (e) {}
     listenForPartnerRequests();
+    // Initialize AI chat listeners
+    initAIChatListeners();
+
+    // Fetch user profile to get name and phase
+    try {
+      const userDoc = await getDoc(doc(db, "users", me.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        userName = userData.displayName || "";
+        // Try to get cycle phase from stored data or calculate it
+        userPhase = userData.currentPhase || calculatePhaseFromStartDate(userData.cycleStartDate) || "";
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    }
+
+    // Set up listener for profile changes
+    setupProfileChangeListener();
   }
   const ob = await getPref("onboarded");
   if (!ob) go("onboarding");
@@ -498,6 +516,15 @@ if (fbOk)
   });
 document.getElementById("signout-btn")?.addEventListener("click", async () => {
   if (fbOk && auth) await signOut(auth);
+  // Clean up chat listeners
+  if (partnerChatUnsub) {
+    partnerChatUnsub();
+    partnerChatUnsub = null;
+  }
+  if (aiChatUnsub) {
+    aiChatUnsub();
+    aiChatUnsub = null;
+  }
   me = null;
   hist = [];
   appMode = "client";
@@ -537,6 +564,11 @@ async function rDash() {
   document.getElementById("d-name").textContent = name
     ? "Welcome back, " + name
     : "";
+  // Set user avatar
+  const avatar = document.getElementById('d-avatar');
+  if (avatar) {
+    avatar.src = userPhotoURL || '';
+  }
   const log = await getLog();
   const ph = await phaseFrom(log);
   const day = await getCycleDay();
@@ -919,6 +951,10 @@ document.getElementById("cal-n").addEventListener("click", () => {
 let pD = { info: null, req: null, logs: [], sync: false };
 let pListeners = [];
 let myCode = null;
+// Partner chat
+let pcH = []; // Partner chat history
+let pcListeners = [];
+let pcUnsub = null;
 
 // Generate a random 6-char alphanumeric code
 function genCode() {
@@ -963,14 +999,27 @@ function listenForPartnerRequests() {
       // Fetch partner profile + start real-time log sync
       try {
         const ps = await getDoc(doc(db, "users", partnerUid));
-        if (ps.exists()) pD.info = { uid: partnerUid, ...ps.data() };
-        startPartnerLogSync(partnerUid);
+        if (ps.exists()) {
+          pD.info = { uid: partnerUid, ...ps.data() };
+          startPartnerLogSync(partnerUid);
+          // Initialize partner chat listeners
+          initPartnerChatListeners(partnerUid);
+        }
       } catch (e) {}
     } else {
       pD.info = null;
       pD.logs = [];
+      // Clean up partner chat listeners
+      if (partnerChatUnsub) {
+        partnerChatUnsub();
+        partnerChatUnsub = null;
+      }
     }
     if (cur === "partner") rPart();
+    // Update partner chat UI when in client mode
+    if (appMode === "client") {
+      updatePartnerChatUI();
+    }
   });
   pListeners.push(unsub);
 }
@@ -1100,7 +1149,7 @@ async function rPart() {
     <div class="card">
       <div class="semi sm mb2">Enter Partner's Code</div>
       <div class="xs mu mb3">Ask them for their 6-character code and enter it here.</div>
-      <input type="text" id="partner-code-inp" class="inp mb3" placeholder="Enter code (e.g. AB12CD)" 
+      <input type="text" id="partner-code-inp" class="inp mb3" placeholder="Enter code (e.g. AB12CD)"
         style="text-transform:uppercase;letter-spacing:.15em;font-family:'Bricolage Grotesque',sans-serif;font-size:1.1rem;text-align:center;height:44px"
         maxlength="6"/>
       <button class="btn btn-p" id="connect-code-btn">
@@ -1137,6 +1186,10 @@ async function rPart() {
     await b.commit();
     pD.req = null;
     rPUI_refresh();
+    // Update partner chat UI when partner is connected
+    if (appMode === "client") {
+      updatePartnerChatUI();
+    }
   });
   document.getElementById("dec")?.addEventListener("click", async () => {
     await updateDoc(doc(db, "users", me.uid), {
@@ -1150,6 +1203,11 @@ async function rPart() {
   });
   document.getElementById("disc")?.addEventListener("click", async () => {
     if (!confirm("Disconnect from partner?")) return;
+    // Clean up partner chat listeners
+    if (partnerChatUnsub) {
+      partnerChatUnsub();
+      partnerChatUnsub = null;
+    }
     const b = writeBatch(db);
     b.update(doc(db, "users", me.uid), { partnerUid: deleteField() });
     b.update(doc(db, "users", pD.info.uid), {
@@ -1161,6 +1219,10 @@ async function rPart() {
     pListeners = [];
     listenForPartnerRequests();
     rPart();
+    // Update partner chat UI when partner is disconnected
+    if (appMode === "client") {
+      updatePartnerChatUI();
+    }
   });
 
   // Code copy
@@ -1273,6 +1335,11 @@ async function rPart() {
         msg.classList.remove("hid");
       }
     });
+
+  // Update partner chat UI when partner data is available (for client mode)
+  if (appMode === "client") {
+    updatePartnerChatUI();
+  }
 }
 
 function rPUI_refresh() {
@@ -1518,11 +1585,21 @@ document
 
 /* ─── AI CHAT ────────────────────────────────── */
 let chatH = [];
-const SYS = `You are Velour's AI wellness coach — helpful, witty, concise.
+let userName = ""; // Will be populated from user profile
+let userPhase = ""; // Will be populated from user cycle data
+let userPhotoURL = ""; // Will be populated from user profile
+
+// Function to get personalized system prompt
+function getAISystemPrompt() {
+  const namePart = userName ? `You are speaking with ${userName}` : "You are speaking with the user";
+  const phasePart = userPhase ? `, who is currently in the ${userPhase} phase of their wellness cycle` : "";
+  return `You are Velour's AI wellness coach — helpful, witty, concise.
+${namePart}${phasePart}.
 Context: Velour is a humor app that tracks a fictional "spermatogenesis cycle" (74 days) for men, mimicking period tracking apps. The humor is self-aware and tongue-in-cheek.
-Give real actionable wellness advice on mood, energy, stress, sleep, and men's health. 
+Give real actionable wellness advice on mood, energy, stress, sleep, and men's health.
 Be encouraging, honest, and occasionally riff on the "male cycle" concept humorously.
 Never diagnose. Suggest doctors for medical issues. Max 3 sentences unless user asks for detail.`;
+}
 
 async function sendM(txt) {
   if (!txt.trim()) return;
@@ -1550,7 +1627,7 @@ async function sendM(txt) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYS }] },
+        system_instruction: { parts: [{ text: getAISystemPrompt() }] },
         contents,
         generationConfig: { maxOutputTokens: 400, temperature: 0.8 },
       }),
@@ -1560,8 +1637,29 @@ async function sendM(txt) {
       json.candidates?.[0]?.content?.parts?.[0]?.text ||
       "Connection issue. Try again.";
     document.getElementById(tid)?.remove();
+
+    // Add to local chat history
     chatH.push({ role: "model", txt: reply, u: false });
     addB(reply, false);
+
+    // Store in Firestore if available
+    if (fbOk && me) {
+      try {
+        const messageRef = doc(collection(db, "users", me.uid, "aiChat", "messages"));
+        await setDoc(messageRef, {
+          text: reply,
+          senderId: me.uid,
+          senderName: me.displayName || "User",
+          timestamp: serverTimestamp(),
+          type: "text",
+          read: false,
+          isAI: true
+        });
+      } catch (firestoreError) {
+        console.error("Error storing AI chat message in Firestore:", firestoreError);
+        // Continue anyway - message is still displayed locally
+      }
+    }
   } catch (e) {
     document.getElementById(tid)?.remove();
     addB(
@@ -1592,12 +1690,19 @@ const scrollC = () => (document.getElementById("chat-msgs").scrollTop = 9999);
 
 const cp = document.getElementById("chat-panel");
 document.getElementById("chat-fab").addEventListener("click", () => {
+  // Reset to AI chat when opening chat panel
+  if (!cp.classList.contains("on")) {
+    currentChatMode = "ai";
+    updatePartnerChatUI();
+  }
   cp.classList.toggle("on");
   document.getElementById("cu").style.display = "none";
 });
 document
   .getElementById("chat-close")
-  .addEventListener("click", () => cp.classList.remove("on"));
+  .addEventListener("click", () => {
+    cp.classList.remove("on");
+  });
 const ci = document.getElementById("chat-in");
 ci.addEventListener("input", (e) => {
   document.getElementById("chat-send").disabled = !e.target.value.trim();
@@ -1616,6 +1721,370 @@ document
 document
   .querySelectorAll(".sug[data-q]")
   .forEach((b) => b.addEventListener("click", () => sendM(b.dataset.q)));
+
+/* ─── PARTNER CHAT ──────────────────────────────── */
+// Partner chat state
+let currentChatMode = "ai"; // "ai" or "partner"
+let partnerChatUnsub = null;
+let partnerChatHistory = [];
+
+// AI chat state
+let aiChatUnsub = null;
+let aiChatHistory = [];
+
+// Initialize partner chat listeners when a partner is connected
+function initPartnerChatListeners(partnerUid) {
+  // Clean up existing listeners
+  if (partnerChatUnsub) {
+    partnerChatUnsub();
+    partnerChatUnsub = null;
+  }
+
+  if (!fbOk || !me || !partnerUid) return;
+
+  // Listen to partner chat messages
+  const chatRef = collection(db, "users", me.uid, "chats", partnerUid, "messages");
+  const q = query(chatRef, orderBy("timestamp", "desc"), limit(50));
+
+  partnerChatUnsub = onSnapshot(q, (snapshot) => {
+    // Convert to ascending order for display (oldest first)
+    partnerChatHistory = snapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      .reverse(); // Reverse to get oldest first for display
+
+    // Update UI if we're in partner chat mode
+    if (currentChatMode === "partner" && appMode === "client") {
+      renderPartnerChat();
+    }
+  }, (error) => {
+    console.error("Partner chat listener error:", error);
+  });
+}
+
+// Initialize AI chat listeners
+function initAIChatListeners() {
+  // Clean up existing listeners
+  if (aiChatUnsub) {
+    aiChatUnsub();
+    aiChatUnsub = null;
+  }
+
+  if (!fbOk || !me) return;
+
+  // Listen to AI chat messages
+  const chatRef = collection(db, "users", me.uid, "aiChat", "messages");
+  const q = query(chatRef, orderBy("timestamp", "asc"), limit(100));
+
+  aiChatUnsub = onSnapshot(q, (snapshot) => {
+    // Convert to array for display
+    aiChatHistory = snapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+    // Update UI if we're in AI chat mode
+    if (currentChatMode === "ai" && appMode === "client") {
+      renderAIChatMessagesFromFirestore();
+    }
+  }, (error) => {
+    console.error("AI chat listener error:", error);
+  });
+}
+
+// Send a message to partner chat
+async function sendPartnerMessage(text) {
+  if (!text.trim() || !fbOk || !me) return;
+
+  // Get partner UID from partner data
+  const partnerUid = pD.info?.uid;
+  if (!partnerUid) {
+    addNotif({
+      type: "info",
+      title: "No partner connected",
+      body: "Connect with a partner first to send messages.",
+      icon: "info"
+    });
+    return;
+  }
+
+  try {
+    // Optimistically add message to local history
+    const optimisticMessage = {
+      id: "temp-" + Date.now(),
+      text: text.trim(),
+      senderId: me.uid,
+      senderName: me.displayName || "User",
+      timestamp: new Date(),
+      type: "text",
+      read: false,
+      isAI: false
+    };
+    partnerChatHistory.push(optimisticMessage);
+    if (currentChatMode === "partner" && appMode === "client") {
+      renderPartnerChat();
+    }
+
+    // Clear input
+    document.getElementById("partner-chat-in").value = "";
+    document.getElementById("partner-chat-in").style.height = "auto";
+
+    // Add message to Firestore
+    const messageRef = doc(collection(db, "users", me.uid, "chats", partnerUid, "messages"));
+    await setDoc(messageRef, {
+      text: text.trim(),
+      senderId: me.uid,
+      senderName: me.displayName || "User",
+      timestamp: serverTimestamp(),
+      type: "text",
+      read: false,
+      isAI: false
+    });
+
+    // Also add to partner's chat collection (for bidirectional sync)
+    const partnerMessageRef = doc(collection(db, "users", partnerUid, "chats", me.uid, "messages"));
+    await setDoc(partnerMessageRef, {
+      text: text.trim(),
+      senderId: me.uid,
+      senderName: me.displayName || "User",
+      timestamp: serverTimestamp(),
+      type: "text",
+      read: false,
+      isAI: false
+    });
+
+    // Remove optimistic message and replace with real one from Firestore (will happen via listener)
+    // We'll keep the optimistic one for now and let the listener update it with the real ID and timestamp
+  } catch (error) {
+    console.error("Error sending partner message:", error);
+    addNotif({
+      type: "info",
+      title: "Message failed",
+      body: "Failed to send message. Please try again.",
+      icon: "info"
+    });
+
+    // Remove optimistic message on error
+    if (partnerChatHistory.length > 0 && partnerChatHistory[partnerChatHistory.length - 1].id.startsWith("temp-")) {
+      partnerChatHistory.pop();
+      if (currentChatMode === "partner" && appMode === "client") {
+        renderPartnerChat();
+      }
+    }
+  }
+}
+
+// Render partner chat messages
+function renderPartnerChat() {
+  const chatMessagesEl = document.getElementById("chat-msgs");
+  if (!chatMessagesEl) return;
+
+  if (partnerChatHistory.length === 0) {
+    chatMessagesEl.innerHTML = `
+      <div class="tc mu xs" style="padding:40px 16px">
+        No messages yet. Start the conversation!
+      </div>
+    `;
+    return;
+  }
+
+  chatMessagesEl.innerHTML = partnerChatHistory.map(msg => {
+    const isOwnMessage = msg.senderId === me.uid;
+    return `
+      <div class="f ic jb mb3">
+        <div class="cmsg ${isOwnMessage ? "u" : "partner"}">
+          <div class="cbub">${msg.text.replace(/\n/g, "<br>")}</div>
+          ${!isOwnMessage ? `<div class="cav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>` : ""}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  // Scroll to bottom
+  setTimeout(() => {
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  }, 100);
+}
+
+// Render AI chat messages from Firestore
+function renderAIChatMessagesFromFirestore() {
+  const chatMessagesEl = document.getElementById("chat-msgs");
+  if (!chatMessagesEl) return;
+
+  if (aiChatHistory.length === 0) {
+    chatMessagesEl.innerHTML = `
+      <div class="tc mu xs" style="padding:40px 16px">
+        No messages yet. Start the conversation!
+      </div>
+    `;
+    return;
+  }
+
+  chatMessagesEl.innerHTML = aiChatHistory.map(msg => {
+    const isUserMsg = msg.senderId === me.uid;
+    return `
+      <div class="f ic jb mb3">
+        <div class="cmsg ${isUserMsg ? "u" : "ai"}">
+          <div class="cbub">${msg.text.replace(/\n/g, "<br>")}</div>
+          ${!isUserMsg ? `<div class="cav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>` : ""}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  // Scroll to bottom
+  setTimeout(() => {
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  }, 100);
+}
+
+// Toggle between AI chat and partner chat
+function toggleChatMode() {
+  currentChatMode = currentChatMode === "ai" ? "partner" : "ai";
+  updatePartnerChatUI();
+}
+
+// Initialize partner chat UI enhancements
+function enhanceChatUI() {
+  const chatPanel = document.getElementById("chat-panel");
+  if (!chatPanel) return;
+
+  // Add chat mode toggle to header
+  const chatHeader = document.querySelector(".ch");
+  if (chatHeader && !document.getElementById("chat-mode-toggle")) {
+    const toggleBtn = document.createElement("button");
+    toggleBtn.id = "chat-mode-toggle";
+    toggleBtn.className = "btn btn-o btn-sm";
+    toggleBtn.textContent = "Switch to Partner Chat";
+    toggleBtn.addEventListener("click", toggleChatMode);
+    // Insert after the title but before the close button
+    const titleEl = chatHeader.querySelector(".f1");
+    if (titleEl) {
+      titleEl.appendChild(toggleBtn);
+    } else {
+      chatHeader.appendChild(toggleBtn);
+    }
+  }
+
+  // Update existing chat area to support both modes
+  const chatMessagesEl = document.getElementById("chat-msgs");
+  const chatInputRow = document.querySelector(".cin-row");
+
+  if (chatMessagesEl && chatInputRow) {
+    // We'll manage the content dynamically based on chat mode
+    // No need to duplicate elements, just switch content
+  }
+}
+
+// Enhanced sendM function to work with chat mode
+const originalSendM = sendM;
+window.sendM = function(txt) {
+  if (currentChatMode === "partner") {
+    sendPartnerMessage(txt);
+  } else {
+    originalSendM.call(this, txt);
+  }
+};
+
+// Initialize partner chat when partner data changes
+function updatePartnerChatUI() {
+  // Update chat header based on mode
+  const chatTitle = document.querySelector(".chat-panel .f1");
+  if (chatTitle) {
+    if (currentChatMode === "partner" && pD.info) {
+      chatTitle.innerHTML = `
+        <div class="f ic g3">
+          <img src="${pD.info.photoUrl}" alt="Partner avatar" class="chat-avatar">
+          <div>
+            <div class="semi" style="font-size: 0.79rem">${pD.info.displayName || "Partner"}</div>
+            <div class="f ic g2">
+              <div class="cadot"></div>
+              <span class="xs mu">Wellness wingman</span>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      chatTitle.innerHTML = `
+        <div class="f ic g3">
+          <img src="${userPhotoURL}" alt="User avatar" class="chat-avatar">
+          <div>
+            <div class="semi" style="font-size: 0.79rem">Velour AI</div>
+            <div class="f ic g2">
+              <div class="cadot"></div>
+              <span class="xs mu">Wellness wingman</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // Update chat mode toggle button
+  const toggleBtn = document.getElementById("chat-mode-toggle");
+  if (toggleBtn) {
+    toggleBtn.textContent = currentChatMode === "ai" ? "Switch to Partner Chat" : "Switch to AI Chat";
+  }
+
+  // Clear and render appropriate chat messages
+  const chatMessagesEl = document.getElementById("chat-msgs");
+  const chatSuggEl = document.getElementById("chat-sugg");
+  if (chatMessagesEl) {
+    if (currentChatMode === "partner") {
+      renderPartnerChat();
+      // Hide suggestions in partner chat mode
+      if (chatSuggEl) chatSuggEl.classList.add("hid");
+    } else {
+      // Render AI chat messages from Firestore
+      renderAIChatMessagesFromFirestore();
+      // Show suggestions in AI chat mode
+      if (chatSuggEl) chatSuggEl.classList.remove("hid");
+    }
+  }
+
+  // Update input placeholder
+  const chatInput = document.getElementById("chat-in");
+  if (chatInput) {
+    chatInput.placeholder = currentChatMode === "partner"
+      ? `Message ${pD.info?.displayName || "partner"}...`
+      : "Ask anything...";
+  }
+}
+
+// Render AI chat messages (existing chat functionality)
+function renderAIChatMessages() {
+  const chatMessagesEl = document.getElementById("chat-msgs");
+  if (!chatMessagesEl) return;
+
+  // Clear existing messages
+  chatMessagesEl.innerHTML = "";
+
+  // Add AI chat messages from chatH array
+  chatH.forEach((msg, index) => {
+    const isUserMsg = msg.role === "user";
+    const messageEl = document.createElement("div");
+    messageEl.className = `cmsg ${isUserMsg ? "u" : "ai"}`;
+
+    if (isUserMsg) {
+      messageEl.innerHTML = `<div class="cbub">${msg.txt.replace(/\n/g, "<br>")}</div>`;
+    } else {
+      messageEl.innerHTML = `
+        <div class="cav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+        <div class="cbub">${msg.txt.replace(/\n/g, "<br>")}</div>
+      `;
+    }
+
+    chatMessagesEl.appendChild(messageEl);
+  });
+
+  // Scroll to bottom
+  setTimeout(() => {
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  }, 100);
+}
 
 /* ─── NAV EVENTS ─────────────────────────────── */
 document.querySelectorAll(".ni[data-nav]").forEach((b) =>
@@ -1866,7 +2335,7 @@ async function rPartnerView() {
 
     body.innerHTML = `
           <div class="f ic g3 mb2" data-a="1" style="padding:2px 0">
-            <div class="av">${ini}</div>
+            <img src="${pInfo.photoUrl}" alt="Partner avatar" class="partner-avatar">
             <div class="f1">
               <div class="f ic g2">
                 <div class="live-dot"></div>
@@ -2019,4 +2488,77 @@ async function boot() {
   // Show login screen (auth state listener above will redirect if already logged in)
   go("login", false);
 }
+
+// Set up listener for profile changes
+function setupProfileChangeListener() {
+  if (!fbOk || !me) return;
+
+  const userDocRef = doc(db, "users", me.uid);
+  const unsub = onSnapshot(userDocRef, (doc) => {
+    if (doc.exists()) {
+      const userData = doc.data();
+      const newName = userData.displayName || "";
+      const newPhase = userData.currentPhase || calculatePhaseFromStartDate(userData.cycleStartDate) || "";
+      const newPhotoURL = userData.photoUrl || "";
+
+      // Update if changed
+      if (newName !== userName || newPhase !== userPhase || newPhotoURL !== userPhotoURL) {
+        userName = newName;
+        userPhase = newPhase;
+        userPhotoURL = newPhotoURL;
+        // Note: The AI system prompt will be updated automatically on next message
+        // since we call getAISystemPrompt() each time
+      }
+    }
+  }, (error) => {
+    console.error("Error setting up profile change listener:", error);
+  });
+
+  // Store the unsubscribe function so we can clean it up later
+  // For simplicity, we're not storing it globally here, but in a real app we would
+}
+
+/* ─── HELP SECTION INTERACTION ──────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  const helpSectionHeaders = document.querySelectorAll('.help-section-header');
+
+  helpSectionHeaders.forEach(header => {
+    // Make headers keyboard focusable
+    header.setAttribute('tabindex', '0');
+
+    header.addEventListener('click', () => {
+      toggleHelpSection(header);
+    });
+
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleHelpSection(header);
+      }
+    });
+
+    // Initialize all sections as collapsed (matching HTML aria-expanded="false")
+    const content = document.getElementById(header.getAttribute('aria-controls'));
+    if (content) {
+      content.style.maxHeight = '0'; // Start collapsed
+    }
+  });
+
+  function toggleHelpSection(header) {
+    const isExpanded = header.getAttribute('aria-expanded') === 'true';
+    header.setAttribute('aria-expanded', String(!isExpanded));
+
+    const content = document.getElementById(header.getAttribute('aria-controls'));
+    if (content) {
+      if (isExpanded) {
+        // Collapsing
+        content.style.maxHeight = '0';
+      } else {
+        // Expanding
+        content.style.maxHeight = content.scrollHeight + 'px';
+      }
+    }
+  }
+});
+
 boot();

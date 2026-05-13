@@ -1,0 +1,14 @@
+{
+  "inline-style-disabled": false,
+  "hints": {
+    "no-inline-styles": "off",
+    "compat-api/html": [
+      "default",
+      {
+        "ignore": [
+          "meta[name=theme-color]"
+        ]
+      }
+    ]
+  }
+}

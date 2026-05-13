@@ -38,7 +38,7 @@ const FB = {
 };
 const VAPID_KEY =
   "BDBnahouOzDo_PV-dJ30TOeSv4YGysdUic8QlnRaLtn2c6FgKN-cAMjiOAo3YxlZCyZujh2at_Ljskz5e5e56u0"; // from Firebase Console > Cloud Messaging
-const GK = "AIzaSyDvcK_Tw4L9omTCEgi_hYuLtqY-kIMGcnM"; // Gemini API key
+const GK = env.GEMINI_API_KEY; 
 const GU = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GK}`;
 
 /* ─── FIREBASE INIT ──────────────────────────── */
@@ -2106,30 +2106,14 @@ document
   ?.addEventListener("click", async () => {
     appMode = "client";
     await setPref("appMode", "client");
-    // Remove mode screen and show login
-    document.getElementById("screen-mode").classList.remove("on");
     go("login");
-    // Register auth state listener now (boot() returned early before mode was chosen)
-    if (fbOk) {
-      onAuthStateChanged(auth, async (u) => {
-        if (u && (cur === "login" || cur === "mode")) await afterLogin(u);
-        else if (!u && cur !== "login") go("login", false);
-      });
-    }
   });
 document
   .getElementById("mode-partner-btn")
   ?.addEventListener("click", async () => {
     appMode = "partner";
     await setPref("appMode", "partner");
-    document.getElementById("screen-mode").classList.remove("on");
     go("login");
-    if (fbOk) {
-      onAuthStateChanged(auth, async (u) => {
-        if (u && (cur === "login" || cur === "mode")) await afterLogin(u);
-        else if (!u && cur !== "login") go("login", false);
-      });
-    }
   });
 
 /* ─── PARTNER VIEW (read-only mode) ──────────── */
@@ -2478,28 +2462,19 @@ async function boot() {
   }
 
   // Load cycle start from Firestore if logged in
-  if (fbOk) {
+  if (fbOk)
     onAuthStateChanged(auth, async (u) => {
+      if (u && (cur === "login" || cur === "mode")) await afterLogin(u);
       if (u) {
-        // Sync cycle start
         try {
           const s = await getDoc(doc(db, "users", u.uid));
           const cs = s.data()?.cycleStart;
           if (cs) await setPref("cycle_start", cs);
         } catch (e) {}
-        // Navigate only if still on login/mode screen
-        if (cur === "login" || cur === "mode") {
-          await afterLogin(u);
-        }
-      } else {
-        // Signed out — go to login if not already there
-        if (cur !== "login") go("login", false);
       }
     });
-    // Show login — onAuthStateChanged fires immediately and will redirect if already authed
-    go("login", false);
-  } else {
-    // Firebase not configured — guest/local mode
+
+  if (!fbOk) {
     const ob = await getPref("onboarded");
     if (ob) {
       if (appMode === "partner") {
@@ -2508,10 +2483,10 @@ async function boot() {
         go("dashboard");
         hist = ["dashboard"];
       }
-    } else {
-      go("login", false);
     }
   }
+  // Show login screen (auth state listener above will redirect if already logged in)
+  go("login", false);
 }
 
 // Set up listener for profile changes

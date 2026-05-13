@@ -38,8 +38,8 @@ const FB = {
 };
 const VAPID_KEY =
   "BDBnahouOzDo_PV-dJ30TOeSv4YGysdUic8QlnRaLtn2c6FgKN-cAMjiOAo3YxlZCyZujh2at_Ljskz5e5e56u0"; // from Firebase Console > Cloud Messaging
-const GK = "AIzaSyDvcK_Tw4L9omTCEgi_hYuLtqY-kIMGcnM"; // Gemini API key
-const GU = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GK}`;
+// Gemini requests go through our Cloud Function proxy — key is never exposed to the browser
+const GU = "/api/gemini";
 
 /* ─── FIREBASE INIT ──────────────────────────── */
 let auth,
@@ -1629,9 +1629,14 @@ async function sendM(txt) {
       role: m.u ? "user" : "model",
       parts: [{ text: m.txt }],
     }));
+    // Get a fresh ID token to authenticate the proxy request
+    const idToken = me ? await me.getIdToken() : null;
+    const headers = { "Content-Type": "application/json" };
+    if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
+
     const res = await fetch(GU, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         system_instruction: { parts: [{ text: getAISystemPrompt() }] },
         contents,
@@ -1669,9 +1674,7 @@ async function sendM(txt) {
   } catch (e) {
     document.getElementById(tid)?.remove();
     addB(
-      GK.startsWith("YOUR_")
-        ? "Add your Gemini API key to activate the AI. Free at aistudio.google.com"
-        : "Connection error. Try again.",
+      "Connection error. Try again.",
       false,
     );
   }

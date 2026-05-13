@@ -503,7 +503,7 @@ document.getElementById("btn-google").addEventListener("click", async () => {
     await afterLogin(r.user);
   } catch (e) {
     const el = document.getElementById("login-err");
-    el.textContent = "Sign-in failed: " + e.message;
+    el.textContent = "Sign-in failed. Please try again.";
     el.classList.remove("hid");
   }
 });
@@ -1331,7 +1331,7 @@ async function rPart() {
         document.getElementById("partner-code-inp").value = "";
       } catch (e) {
         msg.className = "mt3 ebox";
-        msg.textContent = "Error: " + e.message;
+        msg.textContent = "Something went wrong. Please try again.";
         msg.classList.remove("hid");
       }
     });
@@ -1520,7 +1520,7 @@ async function enablePush() {
     addNotif({
       type: "info",
       title: "Push setup failed",
-      body: e.message,
+      body: "Something went wrong. Please try again.",
       icon: "info",
     });
   }
@@ -1645,7 +1645,7 @@ async function sendM(txt) {
     // Store in Firestore if available
     if (fbOk && me) {
       try {
-        const messageRef = doc(collection(db, "users", me.uid, "aiChat", "messages"));
+        const messageRef = doc(collection(db, "users", me.uid, "aiMessages"));
         await setDoc(messageRef, {
           text: reply,
           senderId: me.uid,
@@ -1775,7 +1775,7 @@ function initAIChatListeners() {
   if (!fbOk || !me) return;
 
   // Listen to AI chat messages
-  const chatRef = collection(db, "users", me.uid, "aiChat", "messages");
+  const chatRef = collection(db, "users", me.uid, "aiMessages");
   const q = query(chatRef, orderBy("timestamp", "asc"), limit(100));
 
   aiChatUnsub = onSnapshot(q, (snapshot) => {
@@ -2278,7 +2278,7 @@ async function rPartnerView() {
           });
         } catch (e) {
           msg.className = "mt3 ebox";
-          msg.textContent = "Error: " + e.message;
+          msg.textContent = "Something went wrong. Please try again.";
           msg.classList.remove("hid");
         }
       });
@@ -2437,7 +2437,7 @@ async function rPartnerView() {
       });
     aos(body);
   } catch (e) {
-    body.innerHTML = `<div class="card tc"><p class="sm mu">Error loading partner data: ${e.message}</p></div>`;
+    body.innerHTML = `<div class="card tc"><p class="sm mu">Couldn't load partner data. Please try again.</p></div>`;
   }
 }
 

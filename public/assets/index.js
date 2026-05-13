@@ -460,7 +460,7 @@ async function afterLogin(user) {
         const userData = userDoc.data();
         userName = userData.displayName || "";
         // Try to get cycle phase from stored data or calculate it
-        userPhase = userData.currentPhase || calculatePhaseFromStartDate(userData.cycleStartDate) || "";
+        userPhase = userData.currentPhase || "";
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -490,18 +490,24 @@ document.getElementById("btn-google").addEventListener("click", async () => {
   }
   try {
     const r = await signInWithPopup(auth, new GoogleAuthProvider());
-    await setDoc(
-      doc(db, "users", r.user.uid),
-      {
-        displayName: r.user.displayName || "",
-        email: r.user.email || "",
-        photoUrl: r.user.photoURL || "",
-        lastSeen: serverTimestamp(),
-      },
-      { merge: true },
-    );
+    try {
+      await setDoc(
+        doc(db, "users", r.user.uid),
+        {
+          displayName: r.user.displayName || "",
+          email: r.user.email || "",
+          photoUrl: r.user.photoURL || "",
+          lastSeen: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } catch (profileErr) {
+      console.warn("Profile save failed:", profileErr);
+      // Non-fatal — continue to app
+    }
     await afterLogin(r.user);
   } catch (e) {
+    console.error("Sign-in error:", e);
     const el = document.getElementById("login-err");
     el.textContent = "Sign-in failed. Please try again.";
     el.classList.remove("hid");
@@ -2523,7 +2529,7 @@ function setupProfileChangeListener() {
     if (doc.exists()) {
       const userData = doc.data();
       const newName = userData.displayName || "";
-      const newPhase = userData.currentPhase || calculatePhaseFromStartDate(userData.cycleStartDate) || "";
+      const newPhase = userData.currentPhase || "";
       const newPhotoURL = userData.photoUrl || "";
 
       // Update if changed

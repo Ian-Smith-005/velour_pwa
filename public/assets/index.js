@@ -39,7 +39,9 @@ const FB = {
 const VAPID_KEY =
   "BDBnahouOzDo_PV-dJ30TOeSv4YGysdUic8QlnRaLtn2c6FgKN-cAMjiOAo3YxlZCyZujh2at_Ljskz5e5e56u0"; // from Firebase Console > Cloud Messaging
 // Gemini requests go through our Cloud Function proxy — key is never exposed to the browser
-const GU = "/api/gemini";
+// Cloudflare Worker proxy URL — update this after deploying the worker
+// See DEPLOY.md for setup instructions
+const GU = "https://velour-gemini-proxy.smithiian34.workers.dev";
 
 /* ─── FIREBASE INIT ──────────────────────────── */
 let auth,

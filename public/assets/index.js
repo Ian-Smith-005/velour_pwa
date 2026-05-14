@@ -1633,6 +1633,7 @@ async function sendM(txt) {
     }));
     // Get a fresh ID token to authenticate the proxy request
     const idToken = me ? await me.getIdToken() : null;
+    console.log('idToken present:', !!idToken);
     const headers = { "Content-Type": "application/json" };
     if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
 
@@ -1645,7 +1646,9 @@ async function sendM(txt) {
         generationConfig: { maxOutputTokens: 400, temperature: 0.8 },
       }),
     });
+    console.log('Fetch response status:', res.status, res.statusText);
     const json = await res.json();
+    console.log('Response JSON:', json);
     const reply =
       json.candidates?.[0]?.content?.parts?.[0]?.text ||
       "Connection issue. Try again.";
@@ -1674,6 +1677,7 @@ async function sendM(txt) {
       }
     }
   } catch (e) {
+    console.error('Fetch error:', e);
     document.getElementById(tid)?.remove();
     addB(
       "Connection error. Try again.",

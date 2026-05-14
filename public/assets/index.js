@@ -454,6 +454,7 @@ async function afterLogin(user) {
     listenForPartnerRequests();
     // Initialize AI chat listeners
     initAIChatListeners();
+    listenForNotifications(user.uid);
 
     // Fetch user profile to get name and phase
     try {
@@ -1618,6 +1619,22 @@ async function sendM(txt) {
   btn.disabled = true;
   document.getElementById("chat-in").value = "";
   document.getElementById("chat-in").style.height = "auto";
+  // Save user message to Firestore immediately
+  if (fbOk && me) {
+    try {
+      const userMsgRef = doc(collection(db, "users", me.uid, "aiMessages"));
+      await setDoc(userMsgRef, {
+        text: txt.trim(),
+        senderId: me.uid,
+        senderName: me.displayName || "User",
+        timestamp: serverTimestamp(),
+        type: "text",
+        read: true,
+        isAI: false,
+        role: "user"
+      });
+    } catch (_) {}
+  }
   const tid = "t" + Date.now();
   document
     .getElementById("chat-msgs")
@@ -1658,23 +1675,21 @@ async function sendM(txt) {
     chatH.push({ role: "model", txt: reply, u: false });
     addB(reply, false);
 
-    // Store in Firestore if available
+    // Store AI reply in Firestore with role for context restoration
     if (fbOk && me) {
       try {
         const messageRef = doc(collection(db, "users", me.uid, "aiMessages"));
         await setDoc(messageRef, {
           text: reply,
-          senderId: me.uid,
-          senderName: me.displayName || "User",
+          senderId: "ai",
+          senderName: "Velour AI",
           timestamp: serverTimestamp(),
           type: "text",
-          read: false,
-          isAI: true
+          read: true,
+          isAI: true,
+          role: "model"
         });
-      } catch (firestoreError) {
-        console.error("Error storing AI chat message in Firestore:", firestoreError);
-        // Continue anyway - message is still displayed locally
-      }
+      } catch (_) {}
     }
   } catch (e) {
     console.error('Fetch error:', e);
@@ -1705,10 +1720,23 @@ const scrollC = () => (document.getElementById("chat-msgs").scrollTop = 9999);
 
 const cp = document.getElementById("chat-panel");
 document.getElementById("chat-fab").addEventListener("click", () => {
-  // Reset to AI chat when opening chat panel
-  if (!cp.classList.contains("on")) {
+  const isOpening = !cp.classList.contains("on");
+  if (isOpening) {
     currentChatMode = "ai";
     updatePartnerChatUI();
+    // Restore chatH from Firestore history for context continuity
+    if (aiChatHistory.length > 0 && chatH.length === 0) {
+      chatH = aiChatHistory.map(m => ({
+        role: m.role || (m.isAI ? "model" : "user"),
+        txt: m.text,
+        u: !m.isAI
+      }));
+    }
+    // Render persisted messages if any
+    if (aiChatHistory.length > 0) {
+      document.getElementById("chat-sugg")?.remove();
+      renderAIChatMessagesFromFirestore();
+    }
   }
   cp.classList.toggle("on");
   document.getElementById("cu").style.display = "none";
@@ -1871,8 +1899,16 @@ async function sendPartnerMessage(text) {
       isAI: false
     });
 
-    // Remove optimistic message and replace with real one from Firestore (will happen via listener)
-    // We'll keep the optimistic one for now and let the listener update it with the real ID and timestamp
+    // Notify the partner via Firestore notification trigger
+    const partnerNotifRef = doc(db, "users", partnerUid, "notifications", "latest");
+    setDoc(partnerNotifRef, {
+      type: "chat",
+      title: (me.displayName || "Partner") + " sent you a message",
+      body: text.trim().slice(0, 80),
+      fromUid: me.uid,
+      timestamp: serverTimestamp(),
+      read: false
+    }, { merge: true }).catch(() => {});
   } catch (error) {
     console.error("Error sending partner message:", error);
     addNotif({
@@ -2448,11 +2484,183 @@ async function rPartnerView() {
         b.update(doc(db, "users", me.uid), { partnerUid: deleteField() });
         b.update(doc(db, "users", partnerUid), { partnerUid: deleteField() });
         await b.commit();
+        // Hide chat panel on disconnect
+        const pvChatPanel = document.getElementById("pv-chat-panel");
+        if (pvChatPanel) pvChatPanel.style.display = "none";
+        if (pvChatUnsub) { pvChatUnsub(); pvChatUnsub = null; }
         rPartnerView();
       });
     aos(body);
+    // Init realtime chat between partner (viewer) and client
+    initPartnerViewChat(partnerUid, pInfo.displayName);
   } catch (e) {
     body.innerHTML = `<div class="card tc"><p class="sm mu">Couldn't load partner data. Please try again.</p></div>`;
+  }
+}
+
+
+
+/* ─── FIRESTORE-TRIGGERED PUSH NOTIFICATIONS ─────── */
+let notifListenerUnsub = null;
+
+function listenForNotifications(uid) {
+  if (notifListenerUnsub) notifListenerUnsub();
+  if (!fbOk || !uid) return;
+
+  const notifRef = doc(db, "users", uid, "notifications", "latest");
+
+  notifListenerUnsub = onSnapshot(notifRef, (snap) => {
+    if (!snap.exists()) return;
+    const data = snap.data();
+    if (!data || data.read) return;
+    if (!data.timestamp) return;
+
+    // Only show if notification is recent (< 30 seconds old)
+    const ts = data.timestamp?.toDate?.()?.getTime?.() || 0;
+    if (Date.now() - ts > 30000) return;
+
+    // Mark as read immediately to avoid repeat
+    setDoc(notifRef, { read: true }, { merge: true }).catch(() => {});
+
+    // Show in-app notification
+    addNotif({
+      type: "partner",
+      title: data.title || "New message",
+      body: data.body || "",
+      icon: "partner"
+    });
+
+    // Show OS push notification if permitted
+    if ("Notification" in window && Notification.permission === "granted") {
+      navigator.serviceWorker?.ready.then(reg => {
+        reg.showNotification(data.title || "Velour", {
+          body: data.body || "",
+          icon: "/web-app-manifest-192x192.png",
+          badge: "/favicon-96x96.png",
+          tag: "velour-chat-" + Date.now(),
+          silent: false
+        });
+      }).catch(() => {});
+    }
+  });
+}
+
+/* ─── PARTNER-VIEW REALTIME CHAT ─────────────────── */
+let pvChatUnsub = null;
+let pvPartnerUid = null; // the client's UID that this partner is viewing
+
+function initPartnerViewChat(clientUid, partnerName) {
+  pvPartnerUid = clientUid;
+  const panel = document.getElementById("pv-chat-panel");
+  const nameEl = document.getElementById("pv-chat-name");
+  if (!panel) return;
+  if (nameEl) nameEl.textContent = partnerName || "Partner";
+  panel.style.display = "flex";
+
+  // Toggle collapse on header click
+  const header = panel.querySelector(".pv-chat-header");
+  const toggleBtn = document.getElementById("pv-chat-toggle");
+  [header, toggleBtn].forEach(el => el?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    panel.classList.toggle("collapsed");
+  }));
+
+  // Input handler
+  const inp = document.getElementById("pv-chat-in");
+  const sendBtn = document.getElementById("pv-chat-send");
+  inp?.addEventListener("input", (e) => {
+    sendBtn.disabled = !e.target.value.trim();
+    e.target.style.height = "auto";
+    e.target.style.height = Math.min(e.target.scrollHeight, 72) + "px";
+  });
+  inp?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendPVMessage(inp.value);
+    }
+  });
+  sendBtn?.addEventListener("click", () => sendPVMessage(inp.value));
+
+  // Listen to the shared chat thread (stored under client's UID, keyed by partner's UID)
+  if (pvChatUnsub) pvChatUnsub();
+  if (!fbOk || !me) return;
+
+  const chatRef = collection(db, "users", clientUid, "chats", me.uid, "messages");
+  const q = query(chatRef, orderBy("timestamp", "asc"), limit(100));
+
+  pvChatUnsub = onSnapshot(q, (snapshot) => {
+    const msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderPVChat(msgs, clientUid);
+
+    // If newest message is from the client (not us), show unread indicator
+    const lastMsg = msgs[msgs.length - 1];
+    if (lastMsg && lastMsg.senderId !== me.uid) {
+      // Send a push notification trigger to Firestore
+      if (fbOk && me && clientUid) {
+        setDoc(doc(db, "users", clientUid, "notifications", "latest"), {
+          type: "chat",
+          title: (me.displayName || "Partner") + " sent a message",
+          body: lastMsg.text.slice(0, 80),
+          fromUid: me.uid,
+          timestamp: serverTimestamp(),
+          read: false
+        }, { merge: true }).catch(() => {});
+      }
+    }
+  }, (err) => console.error("PV chat listener:", err));
+}
+
+function renderPVChat(msgs, clientUid) {
+  const el = document.getElementById("pv-chat-msgs");
+  if (!el) return;
+  if (!msgs.length) {
+    el.innerHTML = '<div class="tc mu xs" style="padding:20px 16px">Say hi to your partner!</div>';
+    return;
+  }
+  el.innerHTML = msgs.map(msg => {
+    const mine = msg.senderId === me.uid;
+    return `<div class="cmsg ${mine ? "u" : "partner"}">
+      ${!mine ? '<div class="cav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>' : ""}
+      <div class="cbub">${msg.text.replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>")}</div>
+    </div>`;
+  }).join("");
+  el.scrollTop = el.scrollHeight;
+}
+
+async function sendPVMessage(text) {
+  if (!text?.trim() || !fbOk || !me || !pvPartnerUid) return;
+  const inp = document.getElementById("pv-chat-in");
+  const sendBtn = document.getElementById("pv-chat-send");
+  if (inp) { inp.value = ""; inp.style.height = "auto"; }
+  if (sendBtn) sendBtn.disabled = true;
+
+  const msgData = {
+    text: text.trim(),
+    senderId: me.uid,
+    senderName: me.displayName || "Partner",
+    timestamp: serverTimestamp(),
+    type: "text",
+    read: false,
+    isAI: false
+  };
+
+  try {
+    // Write to both sides so both can read it
+    const refA = doc(collection(db, "users", pvPartnerUid, "chats", me.uid, "messages"));
+    const refB = doc(collection(db, "users", me.uid, "chats", pvPartnerUid, "messages"));
+    await Promise.all([setDoc(refA, msgData), setDoc(refB, msgData)]);
+
+    // Notify client via Firestore trigger doc
+    await setDoc(doc(db, "users", pvPartnerUid, "notifications", "latest"), {
+      type: "chat",
+      title: (me.displayName || "Partner") + " sent you a message",
+      body: text.trim().slice(0, 80),
+      fromUid: me.uid,
+      timestamp: serverTimestamp(),
+      read: false
+    }, { merge: true });
+  } catch (e) {
+    console.error("PV send error:", e);
   }
 }
 

@@ -253,9 +253,36 @@
           </div>
           <div
             class="scr px5 f col"
-            style="gap: 11px; padding-top: 16px; padding-bottom: 28px"
+            style="gap: 11px; padding-top: 16px; padding-bottom: 80px"
             id="pv-body"
           ></div>
+
+          <!-- Partner Chat Panel (shown when connected) -->
+          <div id="pv-chat-panel" class="pv-chat-panel" style="display:none">
+            <div class="pv-chat-header">
+              <div class="f ic g2">
+                <div class="cadot" style="background:var(--ok)"></div>
+                <span class="semi" style="font-size:.8rem;color:var(--cream)" id="pv-chat-name">Partner</span>
+              </div>
+              <button class="bb" id="pv-chat-toggle" title="Toggle chat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="pv-chat-body" id="pv-chat-msgs">
+              <div class="tc mu xs" style="padding:20px 16px">Say hi to your partner!</div>
+            </div>
+            <div class="cin-row">
+              <textarea id="pv-chat-in" class="cin" rows="1" placeholder="Message your partner..."></textarea>
+              <button id="pv-chat-send" class="sbtn" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- LOGIN -->

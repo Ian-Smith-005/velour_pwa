@@ -2077,3 +2077,42 @@ input[type="range"]::-webkit-slider-thumb {
   object-fit: cover;
   background-color: #eee;
 }
+
+/* ── Partner View Chat Panel ─────────────────────── */
+.pv-chat-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 430px;
+  margin: 0 auto;
+  background: var(--layer);
+  border-top: 1px solid var(--rim);
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 80;
+  box-shadow: 0 -4px 24px rgba(0,0,0,.35);
+  transition: transform 0.25s ease;
+}
+.pv-chat-panel.collapsed .pv-chat-body,
+.pv-chat-panel.collapsed .cin-row {
+  display: none;
+}
+.pv-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--rim);
+  cursor: pointer;
+}
+.pv-chat-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  height: 220px;
+}
